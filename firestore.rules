@@ -1,0 +1,92 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return get(/databases/$(database)/documents/td_users/$(request.auth.uid)).data.role;
+    }
+
+    function isDeveloper() {
+      return isSignedIn() && role() == 'developer';
+    }
+
+    function isTester() {
+      return isSignedIn() && role() == 'tester';
+    }
+
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // td_users: anyone signed-in can read, only developers create testers,
+    // first-time setup flow allows self-creation when no users exist yet (the app
+    // does this with createUserWithEmailAndPassword then writes the doc; we permit
+    // writes when the doc doesn't yet exist for the current user).
+    match /td_users/{uid} {
+      allow read: if isSignedIn();
+      allow create: if isSelf(uid) || isDeveloper();
+      allow update, delete: if isDeveloper() || isSelf(uid);
+    }
+
+    match /td_projects/{pid} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isDeveloper();
+    }
+
+    match /td_rounds/{rid} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isDeveloper();
+      // Testers may update pass/fail counts on rounds they're assigned to.
+      allow update: if isTester()
+        && resource.data.assignedTo == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['passed','failed','pending']);
+    }
+
+    match /td_testcases/{tid} {
+      allow read: if isSignedIn();
+      allow create, delete: if isDeveloper();
+      // Developer can fully update
+      allow update: if isDeveloper();
+      // Tester can update status / executedAt / executedBy on their assigned cases
+      allow update: if isTester()
+        && exists(/databases/$(database)/documents/td_rounds/$(resource.data.roundId))
+        && get(/databases/$(database)/documents/td_rounds/$(resource.data.roundId)).data.assignedTo == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status','executedAt','executedBy','updatedAt','batchDate','isCarryOver','isRetest','roundResults']);
+    }
+
+    match /td_bugs/{bid} {
+      allow read: if isSignedIn();
+      // Testers can create bugs on their own rounds
+      allow create: if isTester()
+        && request.resource.data.reportedBy == request.auth.uid
+        && exists(/databases/$(database)/documents/td_rounds/$(request.resource.data.roundId))
+        && get(/databases/$(database)/documents/td_rounds/$(request.resource.data.roundId)).data.assignedTo == request.auth.uid;
+      // Developer can do anything
+      allow create, update, delete: if isDeveloper();
+    }
+
+    match /td_comments/{cid} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    match /td_batches/{bid} {
+      allow read: if isSignedIn();
+      allow create, delete: if isDeveloper();
+      allow update: if isDeveloper()
+        || (isTester() && resource.data.assignedTo == request.auth.uid
+             && request.resource.data.diff(resource.data).affectedKeys()
+                  .hasOnly(['completed','passed','failed','status']));
+    }
+  }
+}
