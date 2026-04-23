@@ -14,7 +14,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useProject } from '../../context/ProjectContext.jsx'
 import { useNavigate } from 'react-router-dom'
 import Badge from '../common/Badge.jsx'
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 
 export default function StepReview({ testCases, onBack }) {
   const { profile } = useAuth()
@@ -60,7 +60,7 @@ export default function StepReview({ testCases, onBack }) {
     () =>
       distributionSummary(
         splitIntoBatches(testCases, {
-          startDate: new Date(form.startDate),
+          startDate: parseISO(form.startDate),
           dailyMinutes: Number(form.dailyMinutes) || DEFAULT_DAILY_MINUTES,
           dailyCapacity: Number(form.dailyCapacity) || DEFAULT_DAILY_CAPACITY,
           orderBy: form.orderBy,
@@ -87,8 +87,8 @@ export default function StepReview({ testCases, onBack }) {
         passed: 0,
         failed: 0,
         pending: testCases.length,
-        startDate: new Date(form.startDate),
-        deadline: form.deadline ? new Date(form.deadline) : null,
+        startDate: parseISO(form.startDate),
+        deadline: form.deadline ? parseISO(form.deadline) : null,
         createdBy: profile.uid,
       })
 
@@ -366,7 +366,7 @@ export default function StepReview({ testCases, onBack }) {
             <div key={b.dayNumber} className="p-4">
               <div className="flex items-baseline justify-between mb-2">
                 <div className="label-sm">Day {b.dayNumber}</div>
-                <div className="font-mono text-[11px] text-ink-dim">{format(new Date(b.date), 'MMM d')}</div>
+                <div className="font-mono text-[11px] text-ink-dim">{format(parseISO(b.date), 'MMM d')}</div>
               </div>
               <div className="flex items-baseline gap-2 mb-1">
                 <div className="text-h3 font-bold">{b.cases.length}</div>
