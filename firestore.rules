@@ -76,8 +76,12 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isSignedIn()
+      allow update: if isSignedIn()
         && resource.data.userId == request.auth.uid;
+      // Authors can delete their own comments; developers can delete any
+      // (needed for cascading round deletes).
+      allow delete: if isDeveloper()
+        || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
 
     match /td_batches/{bid} {

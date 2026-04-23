@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Download, Play, PlayCircle } from 'lucide-react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { ArrowLeft, Download, Play, PlayCircle, Trash2, Loader2, AlertTriangle } from 'lucide-react'
 import {
   getRound,
   watchTestCasesForRound,
   getUser,
   listRounds,
+  deleteRoundCascade,
 } from '../services/firebaseService'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useProject } from '../context/ProjectContext.jsx'
@@ -19,12 +20,15 @@ export default function RoundDetailPage() {
   const { roundId } = useParams()
   const { profile } = useAuth()
   const { selected } = useProject()
+  const navigate = useNavigate()
   const isDev = profile?.role === ROLES.DEVELOPER
 
   const [round, setRound] = useState(null)
   const [tester, setTester] = useState(null)
   const [cases, setCases] = useState([])
   const [projectRounds, setProjectRounds] = useState([])
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     getRound(roundId).then((r) => {
@@ -58,6 +62,21 @@ export default function RoundDetailPage() {
   const daysElapsed = funnelSteps.length
     ? funnelSteps.reduce((acc, s) => acc + 2, 0)
     : 0
+
+  async function handleDelete() {
+    if (deleting) return
+    setDeleting(true)
+    try {
+      const counts = await deleteRoundCascade(roundId)
+      toast.success(
+        `Round deleted (${counts.testCases} cases, ${counts.bugs} bugs, ${counts.batches} batches).`
+      )
+      navigate('/rounds')
+    } catch (err) {
+      toast.error(err.message || 'Could not delete round')
+      setDeleting(false)
+    }
+  }
 
   function exportReport() {
     const header = ['Test ID', 'Title', 'Module', 'Priority', 'Status', 'Round 1', 'Round 2', 'Round 3']
@@ -114,6 +133,14 @@ export default function RoundDetailPage() {
           <button onClick={exportReport} className="btn btn-md btn-secondary">
             <Download size={14} /> Export Report
           </button>
+          {isDev && (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="btn btn-md btn-secondary text-danger hover:bg-danger/10 border-danger/40"
+            >
+              <Trash2 size={14} /> Delete
+            </button>
+          )}
           {!isDev && (
             <Link to={`/rounds/${roundId}/execute`} className="btn btn-md btn-primary">
               <PlayCircle size={16} /> Start Testing
@@ -137,6 +164,53 @@ export default function RoundDetailPage() {
       }]} allPassed={allPassed} />
 
       <RegressionTable testCases={cases} maxRounds={Math.max(3, funnelSteps.length)} />
+
+      {confirmDelete && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center px-4 animate-fade-in"
+          onClick={() => !deleting && setConfirmDelete(false)}
+        >
+          <div
+            className="card p-6 max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-danger/15 text-danger flex items-center justify-center shrink-0">
+                <AlertTriangle size={20} />
+              </div>
+              <div>
+                <h3 className="text-h3 mb-1">Delete this round?</h3>
+                <p className="text-body-md text-ink-muted">
+                  This permanently deletes the round, its{' '}
+                  <span className="font-mono text-ink">{cases.length}</span> test cases,
+                  all associated bugs, comments, and daily batches. This cannot be undone.
+                </p>
+              </div>
+            </div>
+            <div className="bg-surface-lowest/70 border border-outline-variant/40 rounded p-3 text-body-md text-ink-muted mb-5">
+              <div className="font-semibold text-ink mb-1">{round?.name}</div>
+              <div>Round {round?.roundNumber} • {round?.module}</div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                disabled={deleting}
+                className="btn btn-md btn-ghost"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="btn btn-md btn-danger"
+              >
+                {deleting ? <Loader2 className="animate-spin" size={14} /> : <Trash2 size={14} />}
+                {deleting ? 'Deleting…' : 'Yes, delete round'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

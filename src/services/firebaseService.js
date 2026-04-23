@@ -108,6 +108,54 @@ export async function updateRound(roundId, patch) {
   await updateDoc(doc(db, TD.rounds, roundId), patch)
 }
 
+/**
+ * Delete a round and all docs that depend on it:
+ * test cases, batches, bugs, and the comments on those bugs.
+ * Chunked into 400-op batches to stay under Firestore's 500-write limit.
+ * Storage files (screenshots) are left behind — delete manually if needed.
+ */
+export async function deleteRoundCascade(roundId) {
+  const [tcSnap, batchSnap, bugSnap] = await Promise.all([
+    getDocs(query(collection(db, TD.testcases), where('roundId', '==', roundId))),
+    getDocs(query(collection(db, TD.batches), where('roundId', '==', roundId))),
+    getDocs(query(collection(db, TD.bugs), where('roundId', '==', roundId))),
+  ])
+
+  const bugIds = bugSnap.docs.map((d) => d.id)
+  let commentDocs = []
+  // Firestore 'in' queries cap at 30 values — chunk if needed.
+  for (let i = 0; i < bugIds.length; i += 30) {
+    const slice = bugIds.slice(i, i + 30)
+    if (!slice.length) continue
+    const commentSnap = await getDocs(
+      query(collection(db, TD.comments), where('bugId', 'in', slice))
+    )
+    commentDocs = commentDocs.concat(commentSnap.docs)
+  }
+
+  const allRefs = [
+    ...tcSnap.docs.map((d) => d.ref),
+    ...batchSnap.docs.map((d) => d.ref),
+    ...bugSnap.docs.map((d) => d.ref),
+    ...commentDocs.map((d) => d.ref),
+    doc(db, TD.rounds, roundId),
+  ]
+
+  const CHUNK = 400
+  for (let i = 0; i < allRefs.length; i += CHUNK) {
+    const b = writeBatch(db)
+    allRefs.slice(i, i + CHUNK).forEach((ref) => b.delete(ref))
+    await b.commit()
+  }
+
+  return {
+    testCases: tcSnap.size,
+    batches: batchSnap.size,
+    bugs: bugSnap.size,
+    comments: commentDocs.length,
+  }
+}
+
 export async function incrementRoundCounts(roundId, { passed = 0, failed = 0, pending = 0 } = {}) {
   const patch = {}
   if (passed) patch.passed = increment(passed)
