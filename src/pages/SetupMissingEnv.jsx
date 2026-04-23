@@ -18,7 +18,7 @@ export default function SetupMissingEnv() {
         <p className="text-body-md text-ink-muted mb-6">
           Copy <span className="font-mono text-primary">.env.example</span> to{' '}
           <span className="font-mono text-primary">.env</span> in the project root and fill in your
-          Firebase and Groq credentials, then restart the dev server.
+          Firebase and Gemini credentials, then restart the dev server.
         </p>
 
         <div className="bg-surface-lowest border border-outline-variant/60 rounded p-4 font-mono text-[13px] text-ink-muted mb-6">
@@ -40,16 +40,16 @@ export default function SetupMissingEnv() {
           <div className="border border-outline-variant/60 rounded-md p-4">
             <div className="flex items-center gap-2 mb-2 text-secondary">
               <Sparkles size={16} />
-              <span className="text-label-sm uppercase">Groq</span>
+              <span className="text-label-sm uppercase">Gemini</span>
             </div>
             <p className="text-body-md text-ink-muted">
               <a
                 className="text-primary hover:underline"
-                href="https://console.groq.com/keys"
+                href="https://aistudio.google.com/app/apikey"
                 target="_blank"
                 rel="noreferrer"
               >
-                console.groq.com/keys
+                aistudio.google.com/app/apikey
               </a>{' '}
               — free tier is plenty.
             </p>

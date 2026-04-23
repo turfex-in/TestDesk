@@ -7,14 +7,14 @@ Bug tracking & test management platform for mobile app testing teams. Developers
 - React 18 + Vite + React Router v6
 - Tailwind CSS (Obsidian Deep theme)
 - Firebase Auth + Firestore + Storage
-- Groq API (`llama-3.3-70b-versatile`) for test case expansion
+- Google Gemini API (`gemini-2.5-flash`) for test case expansion
 
 ## Getting started
 
 ```bash
 npm install
 cp .env.example .env
-# fill in Firebase + Groq keys
+# fill in Firebase + Gemini keys
 npm run dev
 ```
 
@@ -25,9 +25,9 @@ Open [http://localhost:5173](http://localhost:5173). First run lands on the admi
 | Variable | Where to get it |
 | --- | --- |
 | `VITE_FIREBASE_API_KEY` … `VITE_FIREBASE_APP_ID` | Firebase console → Project settings → General → Your apps → Web app → SDK setup |
-| `VITE_GROQ_API_KEY` | [console.groq.com/keys](https://console.groq.com/keys) — free tier works |
+| `VITE_GEMINI_API_KEY` | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) — free tier works |
 
-> Security note: `VITE_GROQ_API_KEY` ships to the browser. Acceptable for an internal MVP but replace with a Firebase Cloud Function proxy before exposing the app publicly.
+> Security note: `VITE_GEMINI_API_KEY` ships to the browser. Acceptable for an internal MVP but replace with a Firebase Cloud Function proxy before exposing the app publicly.
 
 ## Firebase setup
 
@@ -51,7 +51,7 @@ Open [http://localhost:5173](http://localhost:5173). First run lands on the admi
 - **Services** — `src/services/`
   - `firebaseService.js` — all Firestore CRUD, real-time listeners, Storage uploads
   - `csvParser.js` — PapaParse wrapper with column auto-detect
-  - `aiService.js` — Groq client with rolling 5-case batches + 1s gap; deterministic fallback when the API key is missing
+  - `aiService.js` — Gemini client (`gemini-2.5-flash`) with rolling 5-case batches + short gap; deterministic fallback when the API key is missing
   - `batchSplitter.js` — priority-weighted split (Crit=3, High=2, Med=1.5, Low=1; cap=35 cases or 120 weight), weekend-skip, carry-over + retest injection
 - **Pages** — `src/pages/`. Biggest ones are `ExecutionPage` (tester wizard) and `BugDetailPage` (split view + discussion).
 
@@ -84,5 +84,5 @@ Open [http://localhost:5173](http://localhost:5173). First run lands on the admi
 ## Known dev-mode limitations
 
 - Inviting a tester uses the client-side Firebase Auth SDK, which briefly replaces the developer's session with the new tester's. After inviting, sign back in as the developer. For production, move tester invites to a Firebase Cloud Function using the Admin SDK.
-- The Groq key is in the client bundle for MVP speed; proxy through a Cloud Function before public release.
-- CSV uploads are practical up to ~1,500 rows given Groq rate limits; tune `BATCH_SIZE` / `delayMs` in `aiService.js` if needed.
+- The Gemini key is in the client bundle for MVP speed; proxy through a Cloud Function before public release.
+- CSV uploads are practical up to ~1,500 rows given Gemini free-tier rate limits; tune `batchSize` / `delayMs` in `aiService.js` if needed.

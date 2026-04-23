@@ -1,30 +1,31 @@
-const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
+const GEMINI_MODEL = 'gemini-2.5-flash'
+const GEMINI_URL = (model, key) =>
+  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`
 
 function apiKey() {
-  return import.meta.env.VITE_GROQ_API_KEY
+  return import.meta.env.VITE_GEMINI_API_KEY
 }
 
 export function aiReady() {
   return Boolean(apiKey())
 }
 
+export function aiProviderName() {
+  return 'Gemini'
+}
+
 /**
- * Expand a single test case via Groq Llama 3.3 70B.
+ * Expand a single test case via Google Gemini.
  * Returns { steps: string[], expectedResult: string, estimatedMinutes: number }.
  * Falls back to a deterministic stub if the API key is missing or the call fails.
  */
 export async function expandTestCase(tc) {
   if (!apiKey()) return fallbackExpand(tc)
 
-  const messages = [
-    {
-      role: 'system',
-      content:
-        'You are a QA expert for mobile app testing. Expand brief test case descriptions into detailed, clear testing instructions. Always respond in valid JSON only, no markdown.',
-    },
-    {
-      role: 'user',
-      content: `Expand this test case:
+  const systemInstruction =
+    'You are a QA expert for mobile app testing. Expand brief test case descriptions into detailed, clear testing instructions. Always respond in valid JSON only, no markdown, no prose.'
+
+  const userPrompt = `Expand this test case:
 Title: ${tc.title}
 Module: ${tc.module}
 Brief Description: ${tc.description || '(none — infer from title)'}
@@ -35,33 +36,30 @@ Respond ONLY in this JSON format:
   "steps": ["Step 1: ...", "Step 2: ..."],
   "expectedResult": "detailed expected result",
   "estimatedMinutes": number
-}`,
-    },
-  ]
+}`
 
   try {
-    const res = await fetch(GROQ_URL, {
+    const res = await fetch(GEMINI_URL(GEMINI_MODEL, apiKey()), {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey()}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages,
-        temperature: 0.3,
-        max_tokens: 600,
-        response_format: { type: 'json_object' },
+        systemInstruction: { parts: [{ text: systemInstruction }] },
+        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 800,
+          responseMimeType: 'application/json',
+        },
       }),
     })
     if (!res.ok) {
       const txt = await res.text()
-      throw new Error(`Groq ${res.status}: ${txt.slice(0, 200)}`)
+      throw new Error(`Gemini ${res.status}: ${txt.slice(0, 200)}`)
     }
     const data = await res.json()
-    const content = data.choices?.[0]?.message?.content || ''
+    const content = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
     const parsed = safeParse(content)
-    if (!parsed) throw new Error('Invalid JSON from Groq')
+    if (!parsed) throw new Error('Invalid JSON from Gemini')
     return {
       steps: Array.isArray(parsed.steps) ? parsed.steps.map(String) : [],
       expectedResult: String(parsed.expectedResult || ''),
@@ -75,10 +73,52 @@ Respond ONLY in this JSON format:
 }
 
 /**
+ * Enhance a tester's brief bug description into a structured, developer-friendly report.
+ * Returns the enhanced text. Throws on failure so the caller can show a toast.
+ */
+export async function enhanceBugDescription(briefDescription, testCaseTitle, module, steps) {
+  if (!apiKey()) throw new Error('Gemini API key not configured')
+
+  const prompt = `You are a QA expert. A tester has written a brief bug description. Enhance it into a clear, structured bug report that a developer can immediately understand and act on.
+
+Test Case: ${testCaseTitle}
+Module: ${module}
+Steps Performed: ${steps?.join(', ') || 'N/A'}
+
+Tester's brief description: "${briefDescription}"
+
+Rewrite this into a structured bug report with these sections:
+- **What happened**: Clear description of the actual behavior
+- **Where**: Exact screen/component/flow where it occurred
+- **Frequency**: Always / Sometimes / Once (infer from description)
+- **Impact**: How this affects the user experience
+
+Keep it concise but developer-friendly. Don't add steps to reproduce (those are already in the test case). Write in plain text without markdown headers — just use line breaks between sections.
+Respond with ONLY the enhanced description text, nothing else.`
+
+  const res = await fetch(GEMINI_URL(GEMINI_MODEL, apiKey()), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.4, maxOutputTokens: 600 },
+    }),
+  })
+  if (!res.ok) {
+    const txt = await res.text()
+    throw new Error(`Gemini ${res.status}: ${txt.slice(0, 200)}`)
+  }
+  const data = await res.json()
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
+  if (!text) throw new Error('Empty response from Gemini')
+  return text
+}
+
+/**
  * Expand all test cases with a rolling batch + rate-limit-friendly delay.
  * onProgress(done, total) is called after each batch completes.
  */
-export async function expandAllTestCases(testCases, onProgress = () => {}, batchSize = 5, delayMs = 1000) {
+export async function expandAllTestCases(testCases, onProgress = () => {}, batchSize = 5, delayMs = 1200) {
   const out = []
   for (let i = 0; i < testCases.length; i += batchSize) {
     const slice = testCases.slice(i, i + batchSize)

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Sparkles, Loader2, Wand2, Check, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
-import { expandAllTestCases, aiReady } from '../../services/aiService'
+import { expandAllTestCases, aiReady, aiProviderName } from '../../services/aiService'
 import { cn } from '../../utils/helpers'
 import toast from 'react-hot-toast'
 import Badge from '../common/Badge.jsx'
@@ -49,14 +49,14 @@ export default function StepExpand({ mapped, initialExpanded, onBack, onNext }) 
           <div className="flex-1">
             <h3 className="text-h3">AI-powered expansion</h3>
             <p className="text-body-md text-ink-muted mt-1">
-              We'll send each test case to <span className="font-mono text-primary">llama-3.3-70b-versatile</span> on
-              Groq to generate detailed reproduction steps, expected results, and time estimates. Batches of 5 with a
-              1s gap so you don't hit rate limits.
+              We'll send each test case to <span className="font-mono text-primary">gemini-2.5-flash</span> to
+              generate detailed reproduction steps, expected results, and time estimates. Batches of 5 with a
+              short gap so you don't hit rate limits.
             </p>
             {!aiReady() && (
               <div className="mt-3 flex items-center gap-2 text-tertiary text-body-md">
                 <AlertTriangle size={14} />
-                No Groq API key set — running with deterministic fallback expansions.
+                No {aiProviderName()} API key set — running with deterministic fallback expansions.
               </div>
             )}
           </div>
