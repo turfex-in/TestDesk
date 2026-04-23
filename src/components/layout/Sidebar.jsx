@@ -6,11 +6,11 @@ import {
   Users,
   Settings,
   PlayCircle,
-  Terminal,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { ROLES } from '../../utils/constants'
 import Avatar from '../common/Avatar.jsx'
+import logoApp from '../../assets/logo-app.png'
 
 const DEV_NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -33,9 +33,7 @@ export default function Sidebar() {
   return (
     <aside className="w-[240px] shrink-0 bg-surface-lowest border-r border-outline-variant/60 flex flex-col">
       <div className="px-5 py-5 flex items-center gap-3 border-b border-outline-variant/40">
-        <div className="w-10 h-10 rounded bg-primary-container flex items-center justify-center text-white shrink-0">
-          <Terminal size={18} />
-        </div>
+        <img src={logoApp} alt="TestDesk" className="w-10 h-10 rounded shrink-0 object-cover" />
         <div className="min-w-0">
           <div className="text-[16px] font-bold text-primary leading-none">TestDesk</div>
           <div className="font-mono text-[10px] text-ink-dim uppercase tracking-wider mt-1">

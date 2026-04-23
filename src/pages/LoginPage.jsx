@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
-import { Terminal, Loader2, Eye, EyeOff } from 'lucide-react'
+import { Loader2, Eye, EyeOff } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext.jsx'
+import logoApp from '../assets/logo-app.png'
 
 export default function LoginPage() {
   const { user, profile, loading, needsFirstTimeSetup, login, createFirstDeveloper } = useAuth()
@@ -49,9 +50,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center px-6 py-12 bg-bg">
       <div className="w-full max-w-md">
         <div className="flex items-center gap-3 mb-8 justify-center">
-          <div className="w-11 h-11 rounded bg-primary-container flex items-center justify-center text-white">
-            <Terminal size={22} />
-          </div>
+          <img src={logoApp} alt="TestDesk" className="w-11 h-11 rounded object-cover" />
           <div>
             <div className="text-h3 font-bold">TestDesk</div>
             <div className="font-mono text-[11px] text-ink-dim uppercase tracking-wider">QA Command Center</div>

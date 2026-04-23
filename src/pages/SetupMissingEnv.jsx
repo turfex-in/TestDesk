@@ -1,13 +1,12 @@
-import { Terminal, KeyRound, Sparkles } from 'lucide-react'
+import { KeyRound, Sparkles } from 'lucide-react'
+import logoApp from '../assets/logo-app.png'
 
 export default function SetupMissingEnv() {
   return (
     <div className="min-h-screen flex items-center justify-center px-6 py-12 bg-bg">
       <div className="max-w-2xl w-full card p-10 glow-primary">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded bg-primary-container flex items-center justify-center text-white">
-            <Terminal size={20} />
-          </div>
+          <img src={logoApp} alt="TestDesk" className="w-10 h-10 rounded object-cover" />
           <div>
             <div className="text-h3">TestDesk</div>
             <div className="font-mono text-xs text-ink-dim uppercase tracking-wider">QA Command Center</div>
