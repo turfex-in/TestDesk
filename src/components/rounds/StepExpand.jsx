@@ -49,9 +49,9 @@ export default function StepExpand({ mapped, initialExpanded, onBack, onNext }) 
           <div className="flex-1">
             <h3 className="text-h3">AI-powered expansion</h3>
             <p className="text-body-md text-ink-muted mt-1">
-              We'll send each test case to <span className="font-mono text-primary">gemini-2.5-flash</span> to
-              generate detailed reproduction steps, expected results, and time estimates. Batches of 5 with a
-              short gap so you don't hit rate limits.
+              We'll send each test case to Gemini (<span className="font-mono text-primary">2.5-flash-lite</span>,
+              falling back to <span className="font-mono text-primary">2.5-flash</span> / <span className="font-mono text-primary">2.0-flash</span> if overloaded) to
+              generate detailed reproduction steps, expected results, and time estimates. Retries on 503/429 with backoff.
             </p>
             {!aiReady() && (
               <div className="mt-3 flex items-center gap-2 text-tertiary text-body-md">
