@@ -3,46 +3,77 @@ import {
   PRIORITY_WEIGHT,
   PRIORITY_ORDER,
   DEFAULT_DAILY_CAPACITY,
+  DEFAULT_DAILY_MINUTES,
   DAILY_WEIGHT_CAP,
   DAILY_HARD_CAP,
   TESTCASE_STATUS,
 } from '../utils/constants'
 
 /**
- * Split test cases into daily batches by priority weight.
- * - Weights: Critical=3, High=2, Medium=1.5, Low=1
- * - Cap: dailyCapacity (count) OR weightCap (weight points), whichever hits first
- * - Sort by priority desc, then group same module together
- * - Skip weekends
+ * Split test cases into daily batches.
+ *
+ * Ordering strategies (`orderBy`):
+ *   'csv'      — preserve the input order (default). Day N gets cases N in sequence.
+ *                Best when the CSV is authored in logical execution flow
+ *                (e.g. splash → auth → home → payments).
+ *   'priority' — sort by priority desc, then module. Best when you want to burn
+ *                down the riskiest tests first.
+ *   'module'   — group same-module cases together, tie-break by test ID.
+ *
+ * Capacity: each day fills until EITHER `dailyCapacity` count OR `weightCap`
+ * weight points is reached (weights are priority-derived).
+ *
+ * Skips weekends by default.
  */
 export function splitIntoBatches(
   testCases,
   {
     startDate = new Date(),
     dailyCapacity = DEFAULT_DAILY_CAPACITY,
-    weightCap = DAILY_WEIGHT_CAP,
+    dailyMinutes = DEFAULT_DAILY_MINUTES,
     skipWeekends = true,
+    orderBy = 'csv',
   } = {}
 ) {
-  const sorted = [...testCases].sort((a, b) => {
-    const pa = PRIORITY_ORDER.indexOf(a.priority)
-    const pb = PRIORITY_ORDER.indexOf(b.priority)
-    if (pa !== pb) return pa - pb
-    return (a.module || '').localeCompare(b.module || '')
-  })
+  const indexed = testCases.map((tc, i) => ({ ...tc, __idx: i }))
+
+  let sorted
+  if (orderBy === 'priority') {
+    sorted = indexed.sort((a, b) => {
+      const pa = PRIORITY_ORDER.indexOf(a.priority)
+      const pb = PRIORITY_ORDER.indexOf(b.priority)
+      if (pa !== pb) return pa - pb
+      const m = (a.module || '').localeCompare(b.module || '')
+      if (m !== 0) return m
+      return a.__idx - b.__idx
+    })
+  } else if (orderBy === 'module') {
+    sorted = indexed.sort((a, b) => {
+      const m = (a.module || '').localeCompare(b.module || '')
+      if (m !== 0) return m
+      const s = (a.subModule || '').localeCompare(b.subModule || '')
+      if (s !== 0) return s
+      return (a.testId || '').localeCompare(b.testId || '')
+    })
+  } else {
+    sorted = indexed // csv order
+  }
 
   const days = []
-  let current = { cases: [], weight: 0 }
+  let current = { cases: [], minutes: 0, weight: 0 }
   for (const tc of sorted) {
+    const mins = Number(tc.estimatedMinutes) || 5
     const w = PRIORITY_WEIGHT[tc.priority] || 1
-    if (
-      current.cases.length >= dailyCapacity ||
-      current.weight + w > weightCap
-    ) {
+    const wouldExceedMinutes = current.minutes + mins > dailyMinutes
+    const wouldExceedCount = current.cases.length >= dailyCapacity
+    // Always allow at least one case per day — never create an empty day.
+    if (current.cases.length > 0 && (wouldExceedMinutes || wouldExceedCount)) {
       days.push(current)
-      current = { cases: [], weight: 0 }
+      current = { cases: [], minutes: 0, weight: 0 }
     }
-    current.cases.push(tc)
+    const { __idx, ...rest } = tc
+    current.cases.push(rest)
+    current.minutes += mins
     current.weight += w
   }
   if (current.cases.length) days.push(current)
@@ -58,6 +89,7 @@ export function splitIntoBatches(
       dayNumber: i + 1,
       date: format(cursor, 'yyyy-MM-dd'),
       cases: days[i].cases,
+      minutes: days[i].minutes,
       weight: days[i].weight,
     })
     cursor = addDays(cursor, 1)
@@ -95,7 +127,6 @@ export function computeCarryOvers(allCases, todayStr) {
         isCarryOver: true,
       })
     }
-    // Retest cases without a forward batchDate: assign today
     if (
       tc.status === TESTCASE_STATUS.RETEST &&
       (!tc.batchDate || tc.batchDate < todayStr)

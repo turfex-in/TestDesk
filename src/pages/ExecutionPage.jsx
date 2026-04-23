@@ -46,6 +46,8 @@ export default function ExecutionPage() {
     const off = watchTestCasesForRound(roundId, (list) => {
       list.sort((a, b) => {
         if (a.batchDay !== b.batchDay) return a.batchDay - b.batchDay
+        const ao = a.batchOrder, bo = b.batchOrder
+        if (Number.isFinite(ao) && Number.isFinite(bo) && ao !== bo) return ao - bo
         return (a.testId || '').localeCompare(b.testId || '')
       })
       setCases(list)

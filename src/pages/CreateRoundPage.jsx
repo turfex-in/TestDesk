@@ -3,17 +3,15 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import Stepper from '../components/common/Stepper.jsx'
 import StepUpload from '../components/rounds/StepUpload.jsx'
-import StepExpand from '../components/rounds/StepExpand.jsx'
 import StepReview from '../components/rounds/StepReview.jsx'
 import { useProject } from '../context/ProjectContext.jsx'
 
-const STEPS = ['Upload', 'AI Expand', 'Review']
+const STEPS = ['Upload', 'Review']
 
 export default function CreateRoundPage() {
   const { selected } = useProject()
   const [step, setStep] = useState(0)
   const [uploadResult, setUploadResult] = useState(null)
-  const [expanded, setExpanded] = useState(null)
 
   if (!selected) {
     return (
@@ -40,7 +38,7 @@ export default function CreateRoundPage() {
         </div>
       </div>
 
-      <div className="mb-8 max-w-2xl">
+      <div className="mb-8 max-w-xl">
         <Stepper steps={STEPS} current={step} />
       </div>
 
@@ -55,17 +53,8 @@ export default function CreateRoundPage() {
         />
       )}
       {step === 1 && uploadResult && (
-        <StepExpand
-          mapped={uploadResult.mapped}
-          initialExpanded={expanded}
-          onBack={() => setStep(0)}
-          onNext={(e) => {
-            setExpanded(e)
-            setStep(2)
-          }}
-        />
+        <StepReview testCases={uploadResult.mapped} onBack={() => setStep(0)} />
       )}
-      {step === 2 && expanded && <StepReview expanded={expanded} onBack={() => setStep(1)} />}
     </div>
   )
 }
