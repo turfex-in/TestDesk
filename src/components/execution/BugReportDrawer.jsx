@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { Bug, X, Send, UploadCloud, ImagePlus, Trash2, Loader2 } from 'lucide-react'
+import { Bug, X, Send, UploadCloud, ImagePlus, Trash2, Loader2, Sparkles } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
   uploadScreenshot,
   createBug,
   countBugsForProject,
 } from '../../services/firebaseService'
+import { enhanceBugDescription } from '../../services/aiService'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { SEVERITY, DEVICES, BUG_STATUS } from '../../utils/constants'
 import { bugIdFor } from '../../utils/helpers'
@@ -29,6 +30,27 @@ export default function BugReportDrawer({ testCase, round, onClose, onSubmitted 
   const [files, setFiles] = useState([])
   const [previews, setPreviews] = useState([])
   const [submitting, setSubmitting] = useState(false)
+  const [enhancing, setEnhancing] = useState(false)
+
+  async function handleEnhance() {
+    const brief = actualBehavior.trim()
+    if (!brief || enhancing) return
+    setEnhancing(true)
+    try {
+      const enhanced = await enhanceBugDescription(
+        brief,
+        testCase?.title || '',
+        testCase?.module || '',
+        testCase?.steps || []
+      )
+      setActualBehavior(enhanced)
+      toast.success('Description enhanced')
+    } catch (err) {
+      toast.error(err.message || 'Could not enhance description')
+    } finally {
+      setEnhancing(false)
+    }
+  }
 
   useEffect(() => {
     const esc = (e) => e.key === 'Escape' && onClose()
@@ -142,12 +164,33 @@ export default function BugReportDrawer({ testCase, round, onClose, onSubmitted 
           </div>
 
           <div>
-            <label className="label-sm block mb-1.5">What Actually Happened?</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="label-sm">What Actually Happened?</label>
+              <button
+                type="button"
+                onClick={handleEnhance}
+                disabled={!actualBehavior.trim() || enhancing}
+                className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full border border-primary/60 text-primary text-[12px] font-semibold hover:bg-primary/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {enhancing ? (
+                  <>
+                    <Loader2 className="animate-spin" size={12} />
+                    Enhancing…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={12} />
+                    AI Enhance
+                  </>
+                )}
+              </button>
+            </div>
             <textarea
               className="input min-h-[140px]"
               value={actualBehavior}
               onChange={(e) => setActualBehavior(e.target.value)}
               placeholder="Describe the discrepancy between expected and actual results…"
+              disabled={enhancing}
             />
           </div>
 
