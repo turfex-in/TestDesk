@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { PlayCircle, CheckCircle2, XCircle, Clock, RefreshCw, AlertTriangle, ChevronRight } from 'lucide-react'
+import { PlayCircle, CheckCircle2, XCircle, Clock, RefreshCw, AlertTriangle, ChevronRight, History } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useProject } from '../context/ProjectContext.jsx'
 import { watchRounds, listTestCasesForRound } from '../services/firebaseService'
@@ -83,8 +83,29 @@ export default function TesterDashboard() {
         <h1 className="text-h1 mb-1">Today's Batch</h1>
         <p className="text-body-lg text-ink-muted">
           {fmtDate(new Date(), 'EEEE, MMMM d')} — {summary.total} cases on your plate
+          {summary.carry > 0 && (
+            <span className="text-tertiary">
+              {' '}({summary.total - summary.carry - summary.retest} new + {summary.carry} carry-over
+              {summary.retest > 0 ? ` + ${summary.retest} retest` : ''})
+            </span>
+          )}
         </p>
       </header>
+
+      {summary.carry > 0 && (
+        <div className="flex items-start gap-3 bg-tertiary/10 border border-tertiary/30 rounded-md p-4">
+          <AlertTriangle className="text-tertiary mt-0.5 shrink-0" size={18} />
+          <div className="flex-1 text-body-md">
+            <div className="font-medium text-tertiary">
+              {summary.carry} overdue cases were rolled forward into today
+            </div>
+            <div className="text-ink-muted mt-0.5">
+              These were left pending from earlier days. They show up first in the sequence so you can
+              knock them out and catch back up.
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="card p-6">
         <div className="flex items-center justify-between mb-5">
@@ -100,10 +121,11 @@ export default function TesterDashboard() {
           <div className="h-full bg-secondary" style={{ width: `${pct(summary.passed, summary.total)}%` }} />
           <div className="h-full bg-danger" style={{ width: `${pct(summary.failed, summary.total)}%` }} />
         </div>
-        <div className="grid grid-cols-4 gap-4 mt-5">
+        <div className="grid grid-cols-5 gap-4 mt-5">
           <Stat icon={CheckCircle2} tone="secondary" label="Passed" value={summary.passed} />
           <Stat icon={XCircle} tone="danger" label="Failed" value={summary.failed} />
           <Stat icon={Clock} tone="tertiary" label="Pending" value={summary.pending} />
+          <Stat icon={History} tone="tertiary" label="Carry-over" value={summary.carry} />
           <Stat icon={RefreshCw} tone="primary" label="Retests" value={summary.retest} />
         </div>
       </div>
