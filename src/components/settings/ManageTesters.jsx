@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { UserPlus, Users, Trash2, Loader2, Copy, Check } from 'lucide-react'
+import { UserPlus, Users, Trash2, Loader2, Copy, Check, Eye, EyeOff } from 'lucide-react'
 import {
   createUserWithEmailAndPassword,
   updateProfile,
@@ -20,6 +20,7 @@ export default function ManageTesters() {
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', password: '' })
   const [recentCreated, setRecentCreated] = useState(null)
+  const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
     refresh()
@@ -132,12 +133,23 @@ export default function ManageTesters() {
           </div>
           <div>
             <label className="label-sm block mb-1.5">Temp password</label>
-            <input
-              className="input font-mono"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              placeholder="6+ chars"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                className="input font-mono pr-10"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                placeholder="6+ chars"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded flex items-center justify-center text-ink-dim hover:text-ink hover:bg-surface-high transition-colors"
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
         </div>
         <div className="flex items-start justify-between gap-3">

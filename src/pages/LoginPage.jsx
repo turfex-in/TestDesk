@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
-import { Terminal, Loader2 } from 'lucide-react'
+import { Terminal, Loader2, Eye, EyeOff } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext.jsx'
 
@@ -9,6 +9,7 @@ export default function LoginPage() {
   const [mode, setMode] = useState('login')
   const [form, setForm] = useState({ name: '', email: '', password: '' })
   const [submitting, setSubmitting] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
     if (needsFirstTimeSetup) setMode('setup')
@@ -94,15 +95,25 @@ export default function LoginPage() {
             </div>
             <div>
               <label className="label-sm block mb-1.5">Password</label>
-              <input
-                type="password"
-                className="input"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                placeholder="••••••••"
-                autoComplete={mode === 'setup' ? 'new-password' : 'current-password'}
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  className="input pr-10"
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  placeholder="••••••••"
+                  autoComplete={mode === 'setup' ? 'new-password' : 'current-password'}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded flex items-center justify-center text-ink-dim hover:text-ink hover:bg-surface-high transition-colors"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
 
             <button
