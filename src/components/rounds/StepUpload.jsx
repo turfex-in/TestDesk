@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { FileUp, FileText, RotateCcw, Download } from 'lucide-react'
+import { FileUp, FileText, RotateCcw, Download, ChevronDown } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { parseCsvFile, autoMap, applyMapping, SAMPLE_CSV_TEMPLATE } from '../../services/csvParser'
 import Badge from '../common/Badge.jsx'
@@ -10,8 +10,15 @@ const FIELDS = [
   { key: 'testId', label: 'Test ID', required: false },
   { key: 'title', label: 'Title', required: true },
   { key: 'module', label: 'Module', required: false },
-  { key: 'description', label: 'Description', required: false },
+  { key: 'subModule', label: 'Sub-Module', required: false },
+  { key: 'preConditions', label: 'Pre-Conditions', required: false },
+  { key: 'steps', label: 'Test Steps', required: false },
+  { key: 'expectedResult', label: 'Expected Result', required: false },
   { key: 'priority', label: 'Priority', required: false },
+  { key: 'type', label: 'Type', required: false },
+  { key: 'effort', label: 'Effort', required: false },
+  { key: 'estMinutes', label: 'Est. Minutes', required: false },
+  { key: 'remarks', label: 'Remarks', required: false },
 ]
 
 export default function StepUpload({ projectCode, initial, onNext }) {
@@ -131,19 +138,28 @@ export default function StepUpload({ projectCode, initial, onNext }) {
                   <label className="label-sm block mb-1.5">
                     {f.label}
                     {f.required && <span className="text-danger ml-1">*</span>}
+                    <span className="ml-2 text-[10px] text-ink-dim font-normal normal-case tracking-normal">
+                      (choose CSV column)
+                    </span>
                   </label>
-                  <select
-                    className="input appearance-none"
-                    value={mapping[f.key] || ''}
-                    onChange={(e) => setMapping({ ...mapping, [f.key]: e.target.value })}
-                  >
-                    <option value="">— not mapped —</option>
-                    {headers.map((h) => (
-                      <option key={h} value={h}>
-                        {h}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <select
+                      className="input appearance-none pr-10 cursor-pointer"
+                      value={mapping[f.key] || ''}
+                      onChange={(e) => setMapping({ ...mapping, [f.key]: e.target.value })}
+                    >
+                      <option value="">— not mapped —</option>
+                      {headers.map((h) => (
+                        <option key={h} value={h}>
+                          {h}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown
+                      size={16}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-dim pointer-events-none"
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -161,27 +177,43 @@ export default function StepUpload({ projectCode, initial, onNext }) {
                     <th className="text-left p-3 font-semibold">ID</th>
                     <th className="text-left p-3 font-semibold">Title</th>
                     <th className="text-left p-3 font-semibold">Module</th>
+                    <th className="text-left p-3 font-semibold">Steps</th>
                     <th className="text-left p-3 font-semibold">Priority</th>
+                    <th className="text-left p-3 font-semibold">Effort</th>
+                    <th className="text-left p-3 font-semibold">Est.</th>
                   </tr>
                 </thead>
                 <tbody>
                   {applyMapping(rows.slice(0, 10), mapping, projectCode).map((r, i) => (
                     <tr key={i} className="border-t border-outline-variant/30">
                       <td className="p-3 font-mono text-primary">{r.testId}</td>
-                      <td className="p-3">{r.title}</td>
+                      <td className="p-3">
+                        <div className="truncate max-w-[220px]">{r.title}</div>
+                      </td>
                       <td className="p-3">
                         <Badge tone="neutral" uppercase={false} size="sm">
-                          {r.module}
+                          {r.module}{r.subModule ? ` / ${r.subModule}` : ''}
                         </Badge>
+                      </td>
+                      <td className="p-3 text-ink-muted font-mono text-[12px]">
+                        {r.steps?.length || 0}
                       </td>
                       <td className="p-3">
                         <PriorityChip priority={r.priority} />
+                      </td>
+                      <td className="p-3">
+                        {r.effort
+                          ? <Badge tone={effortTone(r.effort)} size="sm">{r.effort}</Badge>
+                          : <span className="text-ink-dim text-[12px]">—</span>}
+                      </td>
+                      <td className="p-3 font-mono text-[12px] text-ink-muted">
+                        {r.estimatedMinutes}m
                       </td>
                     </tr>
                   ))}
                   {rows.length > 10 && (
                     <tr className="border-t border-outline-variant/30">
-                      <td colSpan={4} className="p-3 text-center text-ink-dim">
+                      <td colSpan={7} className="p-3 text-center text-ink-dim">
                         … and {rows.length - 10} more
                       </td>
                     </tr>
@@ -200,6 +232,14 @@ export default function StepUpload({ projectCode, initial, onNext }) {
       </div>
     </div>
   )
+}
+
+function effortTone(e) {
+  if (e === 'Easy') return 'secondary'
+  if (e === 'Medium') return 'primary'
+  if (e === 'Hard') return 'tertiary'
+  if (e === 'Complex') return 'danger'
+  return 'neutral'
 }
 
 function PriorityChip({ priority }) {

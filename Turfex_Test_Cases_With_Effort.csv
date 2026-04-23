@@ -1,0 +1,1057 @@
+TC_ID,Module,Sub-Module,Test Case Title,Pre-Conditions,Test Steps,Expected Result,Priority,Type,Effort,Status,Remarks
+TC-001,App Launch,Splash Screen,Splash screen displays on cold start,Turfex app installed on the device; app has not been launched recently (force-stopped or fresh install),"1. Locate the Turfex app icon on the device home screen or app drawer
+2. Tap the app icon once to launch the application
+3. Immediately observe the screen from the moment the app begins to open
+4. Do not tap anything during this period","1. A dedicated splash screen is shown as the first visible screen (no other screen is briefly flashed before it).
+2. The Turfex logo/brand icon is rendered in the centre of the screen.
+3. A loading indicator (spinner or progress animation) is visible while the app initialises.
+4. The background colour of the splash matches the brand theme defined in AppTheme.",Critical,Positive,Medium,,
+TC-002,App Launch,Splash Screen,Splash displays for minimum 4 seconds,Turfex app installed on the device,"1. Launch the app from a cold state
+2. Start a stopwatch the moment the splash appears
+3. Continue timing until the splash screen is replaced by the next screen
+4. Record the elapsed duration","1. The splash screen remains fully visible for at least 4 seconds before the app navigates away.
+2. The minimum 4-second duration is enforced even if the backend initialisation finishes earlier (so the logo is never shown for less than 4s).
+3. After the minimum duration has elapsed, the app navigates to the appropriate next screen based on auth state.",High,Positive,Medium,,AuthProvider.minSplashDuration
+TC-003,App Launch,Splash Screen,Auto-redirect to Mobile Login when not logged in,No user is currently signed in OR the app has been freshly installed; no persisted auth session exists,"1. Ensure the user is signed out (or perform a fresh install)
+2. Close the app completely (force stop)
+3. Reopen the app from the home screen
+4. Wait for the splash screen to finish","1. After the splash completes (~4 seconds), the app automatically navigates to the Mobile Login screen.
+2. The Mobile Login screen shows the +91 prefix, mobile input field, and Send OTP button.
+3. No authenticated screens are briefly visible before the redirect (no flash of Home or Dashboard).",Critical,Positive,Medium,,
+TC-004,App Launch,Splash Screen,Auto-redirect to Home when user session active,User previously signed in with role=user and the session has not been revoked,"1. Sign in successfully as a regular user
+2. Close the app completely (kill it from recents)
+3. Relaunch the app by tapping the icon
+4. Wait for the splash to finish","1. After the splash screen completes, the app navigates directly to /home.
+2. The user is NOT routed through the Mobile Login screen (no login flashes are shown).
+3. The Home screen loads with the user's personalised greeting and turf list.",Critical,Positive,Medium,,
+TC-005,App Launch,Splash Screen,Auto-redirect to Owner Dashboard when owner session active,A valid owner account (role=owner) is logged in and the auth session is persisted,"1. Sign in with an owner account and verify role is owner in Firestore
+2. Close the app completely
+3. Reopen the app from the home screen
+4. Wait for splash to finish","1. After splash completes, the owner is routed directly to /owner/dashboard.
+2. No /home or Mobile Login screen is briefly visible.
+3. The Owner Dashboard loads with today's bookings and earnings widgets.",Critical,Positive,Medium,,
+TC-006,App Launch,Initialization,App does not crash on cold start,Fresh device state with Turfex app installed,"1. Open Android Settings > Apps > Turfex > Storage and tap Clear Cache (do not clear data unless testing fresh install)
+2. Force-stop the app
+3. Relaunch Turfex from the home screen
+4. Observe through at least the first 10 seconds of launch","1. The app opens cleanly without displaying a system crash dialog.
+2. No prolonged black screen appears (any black-screen moment lasts less than 1 second).
+3. The splash screen renders and transitions into the next screen without visible errors.
+4. No ANR (Application Not Responding) dialog appears during launch.",Critical,Positive,Medium,,
+TC-007,App Launch,Time Sync,TimeService syncs with server clock on init,"Device has an active, stable internet connection at the moment of app launch","1. Ensure the device is connected to Wi-Fi or mobile data
+2. Force-stop the app to ensure a cold start
+3. Relaunch the app
+4. Wait 5–10 seconds after the app opens
+5. Inspect the log output or call TimeService.isSynced() to verify server time has been fetched","1. Within a few seconds of launch, the TimeService successfully contacts the server clock.
+2. TimeService.isSynced() returns true after the sync completes.
+3. Calls to TimeService.nowCorrected() return a DateTime anchored to the server clock, not the device clock.
+4. The sync completes without throwing an error in the log.",Critical,Positive,Medium,,
+TC-008,App Launch,Time Sync,TimeService falls back to device time without internet,Device has no internet connection (airplane mode ON or Wi-Fi/data OFF),"1. Enable airplane mode on the device
+2. Force-stop the app
+3. Relaunch Turfex
+4. Wait for the splash to finish
+5. Observe behaviour and inspect TimeService state","1. The app launches without any crash despite the failed sync attempt.
+2. TimeService.isSynced() returns false.
+3. TimeService.nowCorrected() silently falls back to the device clock.
+4. The app remains fully usable for offline-tolerant screens; no error dialogs block the user.",High,Edge Case,Medium,,
+TC-009,Authentication,Mobile Login,Mobile Login screen UI elements displayed,User is not signed in; the app is on the Mobile Login screen,"1. Launch the app on a signed-out state
+2. Wait for the splash to finish
+3. Observe the Mobile Login screen
+4. Do not enter any data","1. The screen shows a non-editable prefix consisting of the Indian flag icon and the text +91.
+2. A single-line input field is visible, labelled for a 10-digit mobile number, accepting numeric input only.
+3. A prominent Send OTP button is displayed below the input field.
+4. Layout is not cut off; all elements are visible without scrolling on standard screen sizes.",High,Positive,Medium,,
+TC-010,Authentication,Mobile Login,Valid 10-digit number starting with 6 is accepted,Mobile Login screen is open,"1. Tap the mobile number input field
+2. Type the digits 6000000000
+3. Tap the Send OTP button","1. No client-side validation error is shown below or inside the field.
+2. The Send OTP button enters its loading state (spinner).
+3. The Firebase phone auth request is fired.
+4. On success, the app navigates to the OTP screen.",High,Positive,Medium,,
+TC-011,Authentication,Mobile Login,Valid 10-digit number starting with 7 is accepted,Mobile Login screen is open,"1. Clear any existing input in the mobile field
+2. Type 7000000000
+3. Tap Send OTP","1. The number is accepted without validation error.
+2. The Send OTP API call is triggered and navigates to the OTP screen on success.",High,Positive,Medium,,
+TC-012,Authentication,Mobile Login,Valid 10-digit number starting with 8 is accepted,Mobile Login screen is open,"1. Type 8000000000 in the mobile field
+2. Tap Send OTP","1. No validation error.
+2. OTP is sent and navigation proceeds to the OTP screen.",High,Positive,Medium,,
+TC-013,Authentication,Mobile Login,Valid 10-digit number starting with 9 is accepted,Mobile Login screen is open,"1. Type 9000000000 in the mobile field
+2. Tap Send OTP","1. No validation error.
+2. OTP is sent and the app navigates to the OTP screen.",High,Positive,Medium,,
+TC-014,Authentication,Mobile Login,Mobile starting with 1 shows validation error,Mobile Login screen is open,"1. Type 1234567890 in the mobile input
+2. Tap Send OTP","1. A validation error is shown inline: 'Enter a valid 10-digit Indian mobile number'.
+2. The Send OTP API call is NOT fired (no Firebase request in logs).
+3. The user remains on the Mobile Login screen.",High,Negative,Easy,,
+TC-015,Authentication,Mobile Login,Mobile starting with 2 shows validation error,Mobile Login screen is open,"1. Type 2234567890 in the mobile input
+2. Tap Send OTP","1. The same validation error is displayed.
+2. No OTP request is sent.",Medium,Negative,Easy,,
+TC-016,Authentication,Mobile Login,Mobile starting with 3 shows validation error,Mobile Login screen is open,"1. Type 3234567890
+2. Tap Send OTP","1. Validation error displayed inline.
+2. No OTP request fired.",Medium,Negative,Easy,,
+TC-017,Authentication,Mobile Login,Mobile starting with 4 shows validation error,Mobile Login screen is open,"1. Type 4234567890
+2. Tap Send OTP","1. Validation error displayed.
+2. No OTP request fired.",Medium,Negative,Easy,,
+TC-018,Authentication,Mobile Login,Mobile starting with 5 shows validation error,Mobile Login screen is open,"1. Type 5234567890
+2. Tap Send OTP","1. Validation error displayed.
+2. No OTP request fired.",Medium,Negative,Easy,,
+TC-019,Authentication,Mobile Login,Mobile field accepts only numeric input,Mobile Login screen is open,"1. Tap the mobile input field to focus it
+2. Try to type the letters 'abc'
+3. Try to paste the text 'hello' from the clipboard","1. Alphabetic characters are rejected and do not appear in the input (blocked by inputFormatter).
+2. The pasted non-numeric text is either rejected entirely or stripped to show only digits.
+3. Only 0–9 characters can appear in the input.",High,Negative,Medium,,
+TC-020,Authentication,Mobile Login,Mobile less than 10 digits shows validation error,Mobile Login screen is open,"1. Type 98765 in the mobile field (5 digits only)
+2. Tap Send OTP","1. Inline validation error appears indicating the number must be 10 digits.
+2. The Send OTP request is NOT fired.",High,Negative,Easy,,
+TC-021,Authentication,Mobile Login,Empty mobile field shows validation error,Mobile Login screen is open,"1. Leave the mobile field completely empty
+2. Tap Send OTP without entering anything","1. The inline error 'Mobile number is required' is shown.
+2. The Send OTP request is not fired.",High,Negative,Easy,,
+TC-022,Authentication,Mobile Login,Send OTP button shows loading state during API call,Mobile Login screen is open with a valid 10-digit number entered,"1. Ensure a valid number is in the input
+2. Tap Send OTP once
+3. Immediately observe the Send OTP button","1. The Send OTP button enters a disabled state showing a loading spinner.
+2. The user cannot tap the button again while it is in loading state.
+3. When the Firebase response arrives, the loading state ends and the app either navigates or shows an error.",High,Positive,Medium,,
+TC-023,Authentication,Mobile Login,Cooldown timer prevents rapid re-send on login screen,An OTP has just been sent from this screen,"1. Enter a valid 10-digit mobile number
+2. Tap Send OTP once and let the call complete successfully
+3. Return to Mobile Login via Change Number (if applicable) or attempt re-entry
+4. Try to tap Send OTP again immediately","1. A cooldown countdown is shown on the Send OTP button (e.g. 'Resend in 60s').
+2. The Send OTP button is disabled until the countdown reaches zero.
+3. Only after the 60-second cooldown can the user trigger Send OTP again for the same number.",High,Positive,Medium,,60s cooldown on login screen
+TC-024,Authentication,Mobile Login,Successful OTP send navigates to OTP screen,Valid 10-digit number entered; network available,"1. Enter a valid number (e.g. 9000000000)
+2. Tap Send OTP
+3. Wait for the response","1. Firebase phone auth initiates and returns a verificationId.
+2. The app navigates to the OTP verification screen.
+3. The OTP screen receives both the verificationId and the mobile number via navigation arguments.",Critical,Positive,Easy,,
+TC-025,Authentication,Mobile Login,Country code +91 and Indian flag displayed,Mobile Login screen is open,"1. Open the Mobile Login screen
+2. Focus on the left side of the mobile input area
+3. Try to tap or edit the country code","1. The Indian flag and the text '+91' are shown to the left of the mobile input.
+2. The prefix is non-editable (tapping it does not open a country picker).
+3. No other country codes are offered (app is India-only).",Medium,Positive,Medium,,
+TC-026,Authentication,OTP,OTP screen shows masked mobile number,Navigated from Mobile Login after successfully requesting an OTP for 9123456789,"1. Enter mobile 9123456789 and tap Send OTP on Mobile Login
+2. Wait for the navigation to the OTP screen
+3. Observe the screen header/subtitle area","1. The OTP screen shows the mobile in a masked form: +91XXXXXX6789 (first 6 digits masked, last 4 visible).
+2. The displayed masked number matches the number that was entered on the previous screen.",High,Positive,Medium,,
+TC-027,Authentication,OTP,6 circular dot boxes displayed for OTP input,OTP screen is open,"1. Navigate to the OTP screen after requesting an OTP
+2. Observe the OTP input area","1. Exactly 6 circular input boxes are displayed in a horizontal row.
+2. Each box is empty with a visible circular outline.
+3. The first box is auto-focused for typing.",High,Positive,Medium,,
+TC-028,Authentication,OTP,OTP input accepts only digits,OTP screen is open,"1. Tap the OTP input area
+2. Try typing letters (e.g. 'a', 'b')
+3. Try typing symbols (e.g. '#', '@')","1. Letters and symbols are rejected; the input boxes remain empty.
+2. Only numeric characters (0–9) can populate the boxes.",High,Negative,Medium,,
+TC-029,Authentication,OTP,OTP auto-submits when 6th digit is entered,OTP screen is open,"1. Tap the OTP input
+2. Type 6 digits one at a time (e.g. 1, 2, 3, 4, 5, 6)
+3. Do NOT tap the Verify button manually","1. As each digit is typed, focus advances to the next box automatically.
+2. The moment the 6th digit is entered, Firebase verification is triggered automatically without requiring a manual Verify tap.
+3. A loading spinner briefly appears on the Verify button.",Critical,Positive,Medium,,
+TC-030,Authentication,OTP,Correct OTP for existing user navigates to Home,Mobile belongs to a registered user (role=user); a valid OTP has been received for that number,"1. Enter the correct OTP received via SMS
+2. Wait for auto-submit to trigger","1. Firebase verification succeeds.
+2. User is navigated to /home.
+3. The Firestore user document has its lastLoginAt field updated to the current server timestamp.",Critical,Positive,Easy,,
+TC-031,Authentication,OTP,Correct OTP for new user navigates to Name screen,Mobile is NOT yet registered in Firestore; OTP has been requested,1. Enter the correct OTP for a brand-new mobile number,"1. Firebase verification succeeds.
+2. The app detects the user document does not exist yet.
+3. User is navigated to /name (the Name Entry screen).
+4. The uid and mobile are passed via navigation arguments to the Name screen.",Critical,Positive,Easy,,
+TC-032,Authentication,OTP,Correct OTP for owner navigates to Owner Dashboard,Mobile belongs to a role=owner account; OTP received,1. Enter the correct OTP for an owner's mobile number,"1. Verification succeeds.
+2. The user role is resolved to owner.
+3. App navigates to /owner/dashboard (NOT /home).",Critical,Positive,Easy,,
+TC-033,Authentication,OTP,Wrong OTP shows error with remaining attempts,OTP screen is open with a fresh verificationId (0 wrong attempts made),"1. Enter an intentionally incorrect 6-digit OTP (e.g. 000000)
+2. Allow auto-submit to trigger","1. The inline error shows 'Incorrect OTP (X attempts left)' where X reflects remaining attempts.
+2. The OTP input boxes are cleared so the user can re-enter.
+3. The user remains on the OTP screen.",Critical,Negative,Medium,,
+TC-034,Authentication,OTP,First wrong attempt shows 2 attempts left,OTP screen open; zero wrong attempts made yet,"1. Enter an incorrect OTP (first failed attempt)
+2. Observe the error message","1. Error shown: 'Incorrect OTP (2 attempts left)'.
+2. Input boxes cleared; user may try again.",High,Negative,Medium,,
+TC-035,Authentication,OTP,Second wrong attempt shows 1 attempt left,OTP screen open; one wrong attempt already made,1. Enter another incorrect OTP,"1. Error: 'Incorrect OTP (1 attempt left)'.
+2. Input cleared.",High,Negative,Medium,,
+TC-036,Authentication,OTP,Third wrong attempt blocks the screen,OTP screen open; two wrong attempts already made,1. Enter a third incorrect OTP,"1. Error message shown indicating the user is now blocked from further attempts.
+2. The OTP input boxes become disabled (grey/locked).
+3. The Verify button is disabled.
+4. A 'Change Number' link is prominently shown as the user's only way forward.",Critical,Negative,Medium,,
+TC-037,Authentication,OTP,Change Number link returns to Mobile Login,OTP screen is in the blocked state after 3 wrong attempts,1. Tap the 'Change Number' link,"1. The app navigates back to /mobile-login.
+2. The mobile input field is empty and ready for a fresh entry.
+3. The blocked state is cleared (new OTP flow can be started).",High,Negative,Medium,,
+TC-038,Authentication,OTP,Resend disabled during 30-second countdown,User has just arrived on the OTP screen after requesting an OTP,"1. Land on the OTP screen immediately after Send OTP
+2. Observe the Resend OTP label","1. A 30-second countdown starts immediately, rendered as 'Resend OTP in 30s'.
+2. The Resend OTP text is displayed in a disabled (non-tappable) colour.
+3. Tapping it does nothing while disabled.",High,Positive,Medium,,
+TC-039,Authentication,OTP,Resend countdown decrements every second,OTP screen open with an active 30s countdown,"1. Observe the Resend label
+2. Watch it for 5 consecutive seconds without interacting","1. The counter decrements smoothly each second: 30, 29, 28, 27, 26, 25…
+2. No visible skips or jumps; exactly one decrement per second.",Medium,Positive,Medium,,
+TC-040,Authentication,OTP,Resend becomes tappable after 30 seconds,Countdown started and has reached 0,"1. Wait 30 seconds without interacting with the OTP screen
+2. Observe the Resend control","1. When the countdown reaches 0, the label changes to 'Resend OTP'.
+2. The text colour changes from disabled to enabled (brand accent colour).
+3. The Resend control is now tappable.",High,Positive,Medium,,
+TC-041,Authentication,OTP,Tap Resend sends new OTP and restarts countdown,Resend is enabled (countdown elapsed),"1. Tap the Resend OTP label
+2. Observe the screen","1. A new OTP is requested from Firebase.
+2. A snackbar appears with 'OTP resent' confirmation.
+3. The 30-second countdown restarts from 30 and decrements again.
+4. Input boxes are cleared.",High,Positive,Medium,,
+TC-042,Authentication,OTP,Resend resets wrong attempts counter,OTP screen is in blocked state after 3 wrong attempts; countdown has elapsed,1. Tap Resend OTP after the countdown finishes,"1. wrongAttempts counter is reset to 0.
+2. OTP input boxes are re-enabled and focusable.
+3. Verify button becomes active.
+4. The blocking UI is removed.",High,Positive,Medium,,
+TC-043,Authentication,OTP,Verify button shows spinner during verification,OTP screen open; 6 digits entered,"1. Type 6 digits
+2. Observe the Verify button area during auto-submit","1. The Verify button displays a loading spinner while Firebase is processing.
+2. The button is temporarily disabled to prevent double-submission.",Medium,Positive,Medium,,
+TC-044,Authentication,OTP,Session-expired error handled gracefully,OTP was requested more than 5 minutes ago (likely expired),"1. Wait 5+ minutes on the OTP screen
+2. Enter the OTP that was originally received
+3. Allow auto-submit","1. Firebase returns a session-expired error.
+2. An error message is shown: 'OTP expired. Please request a new one.'
+3. OTP inputs are cleared so the user can Resend.",High,Negative,Medium,,
+TC-045,Authentication,OTP,Network error on verification handled gracefully,OTP screen open with 6 digits ready to submit; device is offline,"1. Turn on airplane mode before auto-submit fires
+2. Enter OTP to trigger verification
+3. Observe the error","1. Firebase call fails due to no network.
+2. An inline error appears: 'Network error. Check your connection.'
+3. The app does not crash; user can retry after reconnecting.",High,Negative,Medium,,
+TC-046,Authentication,Name Entry,Name screen shown only for new users,OTP was successfully verified for a mobile number not previously registered,"1. Complete OTP verification for a brand-new mobile
+2. Observe the next screen","1. The app navigates to /name (Name Entry) after OTP success.
+2. The screen receives uid and mobile via navigation arguments.
+3. The name input field is empty and focused.",Critical,Positive,Easy,,
+TC-047,Authentication,Name Entry,Name screen not shown for existing users,OTP verified for a mobile already linked to an existing user document,1. Complete OTP for an existing user's mobile number,"1. The app skips the Name screen entirely.
+2. It navigates directly to /home (for role=user) or /owner/dashboard (for role=owner).",Critical,Positive,Easy,,
+TC-048,Authentication,Name Entry,Valid name with 2+ characters accepted,Name screen is open,"1. Tap the name input
+2. Type 'Jo'
+3. Tap Continue","1. No validation error is shown.
+2. The name is accepted and the user record is created in Firestore with name='Jo'.
+3. The app navigates to /home.",High,Positive,Medium,,
+TC-049,Authentication,Name Entry,Empty name shows validation error,Name screen is open,"1. Leave the name field empty
+2. Tap Continue","1. Inline validation error appears: 'Name is required'.
+2. No user document is created.
+3. The user remains on the Name screen.",High,Negative,Easy,,
+TC-050,Authentication,Name Entry,Single character name shows error,Name screen is open,"1. Type the single letter 'A'
+2. Tap Continue","1. Validation error shown: 'Name must be at least 2 characters'.
+2. User remains on the Name screen.",High,Negative,Medium,,
+TC-051,Authentication,Name Entry,Name exceeding 50 chars shows error,Name screen is open,"1. Type a 51-character name (any letters)
+2. Tap Continue","1. Validation error: 'Name must be at most 50 characters'.
+2. No user record created.",Medium,Negative,Medium,,
+TC-052,Authentication,Name Entry,Name must start with a letter,Name screen is open,"1. Type '1Ahmed'
+2. Tap Continue
+3. Clear the field and type ' Ahmed' (leading space)
+4. Tap Continue again","1. Both attempts trigger the validation error 'Name must start with a letter'.
+2. No user record is created.",High,Negative,Medium,,
+TC-053,Authentication,Name Entry,Name can only contain letters and spaces,Name screen is open,"1. Type 'Ahmed123'
+2. Tap Continue
+3. Clear and try 'Ahmed@'
+4. Tap Continue","1. Validation error: 'Name can only contain letters and spaces'.
+2. Neither name is accepted.",High,Negative,Medium,,
+TC-054,Authentication,Name Entry,Name cannot have consecutive spaces,Name screen is open,"1. Type 'Ahmed  Khan' (two consecutive spaces between words)
+2. Tap Continue","1. Validation error: 'Name cannot contain consecutive spaces'.
+2. Name is not saved.",Medium,Negative,Medium,,
+TC-055,Authentication,Name Entry,Valid name creates Firestore user document,Name screen is open; no Firestore user doc yet for this uid,"1. Type 'Ahmed Khan'
+2. Tap Continue
+3. Inspect the users/{uid} document in Firestore","1. A new document is created at users/{uid} containing:
+   - name: 'Ahmed Khan'
+   - mobile: the mobile used for OTP
+   - role: 'user'
+   - isVerified: true
+   - totalBookings: 0
+   - totalHours: 0
+   - createdAt: server timestamp (now)
+   - lastLoginAt: server timestamp (now)",Critical,Positive,Medium,,
+TC-056,Authentication,Name Entry,After name entry user navigates to Home,Valid name submitted on the Name screen,1. Tap Continue with a valid name,"1. The Firestore user doc is created successfully.
+2. The app navigates to /home.
+3. The Home screen greeting uses the entered first name.",Critical,Positive,Easy,,
+TC-057,Authentication,Session,Persistent login survives app restart,User is currently signed in,"1. Sign in as a user and land on Home/Dashboard
+2. Force-stop the app via Recents > swipe
+3. Relaunch Turfex from the home screen","1. After the splash, the user is restored to their previous authenticated screen without having to re-enter mobile/OTP.
+2. The Mobile Login screen is not shown.",Critical,Positive,Medium,,
+TC-058,Authentication,Session,Logout from User Profile clears session,User is signed in with role=user,"1. Navigate to the user's Profile tab
+2. Tap Logout
+3. Confirm logout in the dialog","1. Firebase auth session is cleared (currentUser == null).
+2. Any cached user data is wiped.
+3. The app navigates to /mobile-login.
+4. Relaunching the app shows Mobile Login (not Home).",Critical,Positive,Medium,,
+TC-059,Authentication,Session,Logout from Owner Profile clears session,Owner is signed in,"1. Navigate to Owner Profile
+2. Tap Logout
+3. Confirm","1. Auth session cleared.
+2. App navigates to /mobile-login.
+3. Owner cannot access /owner routes without re-authentication.",Critical,Positive,Medium,,
+TC-060,Authentication,Session,Logged-out user cannot access protected routes,User has just logged out,"1. From the logged-out state, attempt to manually navigate to /home (via deep link or direct URL)
+2. Observe","1. The AuthProvider detects no session and redirects to /mobile-login.
+2. No content from /home is shown before the redirect.",Critical,Negative,Medium,,
+TC-061,Authentication,Session,Back button after logout does not return to protected screens,User has just logged out and is on Mobile Login,"1. On /mobile-login, press the Android hardware back button","1. The app remains on /mobile-login (or closes safely if the back stack is empty).
+2. The app does NOT navigate back to Home, Profile, or any authenticated screen.",Critical,Negative,Medium,,
+TC-062,Authentication,Session,Owner role blocks access to /home,Owner is signed in (role=owner),"1. While logged in as an owner, attempt to navigate to /home via deep link or code","1. The AuthProvider / route guard detects role mismatch.
+2. User is redirected to /owner/dashboard.",Critical,Negative,Medium,,
+TC-063,Authentication,Session,User role blocks access to /owner routes,User is signed in (role=user),1. Attempt to navigate to /owner/dashboard via deep link,"1. The route guard blocks access.
+2. User is redirected to /home.",Critical,Negative,Medium,,
+TC-064,User,Home Screen,Home loads active turf list from Firestore,Signed in as role=user; at least one turf with isActive=true exists,"1. Sign in and navigate to /home
+2. Wait for the turf cards to load","1. The turf list loads fully within 3 seconds on a 4G connection.
+2. Each card shows: turf name, sport(s), price per hour, area, average rating (stars + count), and opening hours.
+3. Only turfs with isActive=true are visible.",Critical,Positive,Medium,,
+TC-065,User,Home Screen,Inactive turfs hidden from users,A turf exists with isActive=false in Firestore,"1. Sign in as a user
+2. Navigate to /home
+3. Look for the inactive turf by name","1. Turfs with isActive=false are filtered out of the list.
+2. The inactive turf does not appear anywhere in the home feed.",Critical,Positive,Medium,,
+TC-066,User,Home Screen,Greeting shows Good Morning 6am-12pm,User signed in with name set; device time is between 06:00 and 11:59,"1. Set device time to 08:30
+2. Open /home
+3. Observe greeting","1. Greeting reads 'Good Morning, [FirstName]'.",Medium,Positive,Medium,,
+TC-067,User,Home Screen,Greeting shows Good Afternoon 12pm-5pm,Device time between 12:00 and 16:59,"1. Set device time to 14:00
+2. Open /home","1. Greeting reads 'Good Afternoon, [FirstName]'.",Medium,Positive,Medium,,
+TC-068,User,Home Screen,Greeting shows Good Evening after 5pm,Device time is 17:00 or later,"1. Set device time to 19:30
+2. Open /home","1. Greeting reads 'Good Evening, [FirstName]'.",Medium,Positive,Medium,,
+TC-069,User,Home Screen,Greeting uses user's first name only,User's full name in Firestore is 'Ahmed Khan',1. Open /home,"1. The greeting shows only 'Ahmed' (first word split from the full name).
+2. The surname 'Khan' does not appear in the greeting.",Low,Positive,Easy,,
+TC-070,User,Home Screen,Sport filter All shows all active turfs,Multiple active turfs exist across different sports,"1. Open /home
+2. Tap the 'All' chip in the sport filter row","1. The 'All' chip is highlighted as active.
+2. All active turfs across every sport are shown.",High,Positive,Medium,,
+TC-071,User,Home Screen,Sport filter Cricket shows only Cricket turfs,At least one active cricket turf exists,"1. Open /home
+2. Tap the 'Cricket' chip","1. Only turfs whose sport includes Cricket are shown.
+2. Non-cricket turfs are filtered out.",High,Positive,Medium,,
+TC-072,User,Home Screen,Sport filter Football shows only Football turfs,At least one active football turf exists,"1. Open /home
+2. Tap the 'Football' chip",1. Only Football turfs are shown.,High,Positive,Medium,,
+TC-073,User,Home Screen,Sport filter Badminton shows only Badminton turfs,At least one active badminton turf exists,"1. Open /home
+2. Tap the 'Badminton' chip",1. Only Badminton turfs are shown.,High,Positive,Medium,,
+TC-074,User,Home Screen,Empty state shown when no turfs match filter,A sport exists for which there are no active turfs,"1. Open /home
+2. Tap the sport chip that has no turfs
+3. Observe the main content area","1. An empty-state illustration/icon is displayed.
+2. A short message is shown (e.g. 'No turfs for this sport yet').
+3. No broken card placeholders or infinite loaders are visible.",Medium,Positive,Easy,,
+TC-075,User,Home Screen,Location permission requested on first use,Location permission has never been granted or denied for the app,"1. Perform a fresh install or revoke location permission
+2. Sign in and open /home for the first time","1. The OS location permission dialog appears requesting Allow / Deny.
+2. The dialog is modal; Home continues to load beneath it.",High,Positive,Medium,,
+TC-076,User,Home Screen,Distance badge in km when location enabled,User has granted location permission,"1. Grant location permission
+2. Open /home
+3. Observe each turf card","1. Each turf card shows a distance badge such as '2.4 km' computed via Haversine from current location.
+2. Distances are formatted to one decimal place.",High,Positive,Easy,,
+TC-077,User,Home Screen,Location off badge when permission denied,User has denied location permission,"1. Deny location permission
+2. Open /home","1. Each turf card shows a 'Location off' badge in place of a distance value.
+2. No distances are computed or shown.",High,Positive,Easy,,
+TC-078,User,Home Screen,Location sort orders by nearest first,Location granted; multiple turfs with geo coordinates exist,"1. Grant location
+2. Open /home
+3. Enable the 'Sort by Nearest' option","1. Turfs are reordered so the one with the smallest Haversine distance appears first.
+2. Sort order is strictly ascending by distance.",High,Positive,Medium,,
+TC-079,User,Home Screen,Tap turf card navigates to Turf Detail,Turfs are visible on /home,1. Tap anywhere on a turf card,"1. The app navigates to /turf/:id where :id matches the tapped turf's Firestore document ID.
+2. The Turf Detail screen loads the correct turf data.",Critical,Positive,Easy,,
+TC-080,User,Home Screen,Search pill navigates to Search screen,Home screen is open,1. Tap the search pill/bar at the top of Home,"1. The app navigates to /search.
+2. The search input is auto-focused.",High,Positive,Easy,,
+TC-081,User,Home Screen,Notifications bell opens bottom sheet,User is on /home; user has at least one booking,1. Tap the bell icon in the top-right of /home,"1. A bottom sheet slides up.
+2. It shows the user's last 5 bookings with booking code, turf, date, status.
+3. Tapping outside dismisses the sheet.",High,Positive,Easy,,
+TC-082,User,Home Screen,Real-time turf updates without refresh,User is currently on /home; admin/owner adds a new active turf,"1. Keep /home open on device A
+2. On an admin panel (device B), create a new turf with isActive=true
+3. Observe device A's home feed","1. The new turf card appears in the list within a few seconds without any pull-to-refresh.
+2. Firestore's onSnapshot stream drives the update automatically.",High,Positive,Medium,,
+TC-083,User,Search,Search by turf name partial match,Multiple turfs exist including one named 'TriStar Arena',"1. Open /search
+2. Type 'tri' in the search input","1. Turfs whose name contains 'tri' (case-insensitive) appear in the results.
+2. The result updates live as more characters are typed.",High,Positive,Medium,,
+TC-084,User,Search,Search by area keyword,"Turfs have different area fields (e.g. 'Koramangala', 'Indiranagar')","1. Open /search
+2. Type 'koram' in the search input","1. Turfs located in Koramangala appear.
+2. Non-matching areas are filtered out.",High,Positive,Medium,,
+TC-085,User,Search,Search by sport keyword,Multiple turfs with different sports,"1. Open /search
+2. Type 'cricket'","1. All cricket turfs appear.
+2. Turfs without Cricket in their sport list are excluded.",High,Positive,Medium,,
+TC-086,User,Search,No results shows empty state,No turf matches the given query,"1. Open /search
+2. Type 'xyznonexistent'","1. The list displays an empty state (icon + message such as 'No turfs found').
+2. No broken card placeholders are shown.",Medium,Positive,Easy,,
+TC-087,User,Search,Empty query shows browse by sport chips,Search screen is open with an empty input,"1. Open /search
+2. Do not type anything","1. Below the search input, browse-by-sport chips are displayed (Cricket, Football, Badminton, etc.).
+2. Tapping any chip populates results for that sport.",Medium,Positive,Medium,,
+TC-088,User,Search,Sport chip filters results,Search screen is open,1. Tap the Cricket chip,"1. Results are filtered to Cricket turfs only.
+2. The chip visually indicates its selected state.",High,Positive,Medium,,
+TC-089,User,Search,Filter sheet opens from filter icon,Search screen is open,1. Tap the filter icon in the header,"1. A bottom sheet opens titled 'Filters'.
+2. Options include: distance slider, price sort (low-to-high / high-to-low), minimum rating.",High,Positive,Easy,,
+TC-090,User,Search,Recent searches saved up to 5,Search screen is open,"1. Perform 5+ searches with different terms (e.g. 'cri', 'foo', 'bad', 'aren', 'kor')
+2. Clear the search input
+3. Observe the area below the input","1. The last 5 unique searches are displayed as tappable chips.
+2. Older searches beyond 5 are evicted (oldest first).
+3. Searches persist only within the session.",Low,Positive,Easy,,In-session only
+TC-091,User,Turf Detail,Turf info displays correctly,Valid turf ID passed in navigation; turf doc exists in Firestore,"1. Tap a turf card on /home
+2. Wait for /turf/:id to load","1. Name, address, description, primary sport, price per hour, opening hours, and area are all shown.
+2. Data matches the Firestore document exactly.",Critical,Positive,Medium,,
+TC-092,User,Turf Detail,Turf photos load correctly,Turf has a photoUrls array with at least 3 images,1. Open a turf's detail page,"1. A horizontally-scrollable gallery is shown.
+2. Images load progressively with a loading shimmer.
+3. If a URL fails, a placeholder image is shown (no broken-image icon).",High,Positive,Medium,,
+TC-093,User,Turf Detail,Average rating and count displayed,Turf has at least 3 ratings,"1. Open turf detail
+2. Locate the rating section","1. Average rating is shown (e.g. 4.5 stars).
+2. Star row reflects the average.
+3. Total review count is shown (e.g. '23 reviews').",High,Positive,Medium,,
+TC-094,User,Turf Detail,Amenities list shown,Turf has amenities array populated,1. Scroll to the amenities section,"1. Amenities are shown as labelled chips or icons (e.g. Parking, Washroom, Drinking Water).",Medium,Positive,Easy,,
+TC-095,User,Turf Detail,View All Ratings navigates to ratings list,Turf detail is open; turf has ratings,1. Tap 'View All Ratings',"1. App navigates to /ratings/:turfId.
+2. The ratings list screen loads with full reviews.",High,Positive,Easy,,
+TC-096,User,Turf Detail,Get Directions opens Google Maps,Google Maps app installed; turf has a valid address,"1. On turf detail, tap the 'Get Directions' button","1. Google Maps launches with the turf's address or lat/lng as the destination.
+2. The user's current location is used as the starting point (if available).",High,Positive,Easy,,
+TC-097,User,Turf Detail,Book Now navigates to Slot Picker,Turf detail is open,1. Tap the 'Book Now' button,"1. App navigates to /slot-picker.
+2. The full TurfModel (including price, hours, id) is passed as a navigation argument.",Critical,Positive,Easy,,
+TC-098,User,Slot Picker,Date strip shows 14 dates,Slot Picker just opened,"1. Open Slot Picker
+2. Observe the horizontal date strip at the top","1. Exactly 14 date chips are visible: today + next 13 days.
+2. Today is pre-selected (highlighted).
+3. Each chip shows day name (e.g. Mon) and date number.",High,Positive,Hard,,
+TC-099,User,Slot Picker,Select future date loads availability,Slot Picker is open,"1. Scroll/tap to a future date
+2. Observe the slot grid update","1. Slot grid refreshes to show availability for the selected date.
+2. Already-booked slots appear greyed out.
+3. Free slots appear as tappable, brand-coloured.",Critical,Positive,Hard,,
+TC-100,User,Slot Picker,Available slots shown clearly,Selected date has free slots,"1. Select a date with free slots
+2. Observe the grid styling","1. Free slots are shown with full-colour background and active text.
+2. Their styling is visually distinct from booked/unavailable slots.",High,Positive,Hard,,
+TC-101,User,Slot Picker,Booked slots shown as unavailable,Selected date has at least one confirmed booking,"1. Select a date with a confirmed booking
+2. Observe the slot(s) at that time","1. Booked slots are rendered in a disabled/greyed style.
+2. Tapping a booked slot has no effect (not selectable).",Critical,Positive,Hard,,
+TC-102,User,Slot Picker,Tap available slot highlights it,An available slot is visible,1. Tap a free slot,"1. The slot becomes visually highlighted (e.g. primary background, border).
+2. Other slots return to their default style.",High,Positive,Hard,,
+TC-103,User,Slot Picker,Tap selected slot again deselects,A slot is currently selected,1. Tap the same (currently selected) slot again,"1. The slot returns to its default unselected style.
+2. The Confirm Slot button becomes disabled again.",Medium,Positive,Hard,,
+TC-104,User,Slot Picker,Duration options 1h 1.5h 2h 3h present,Slot Picker is open,1. Observe the duration selection row below the slots,"1. Four duration options are shown: 60 min, 90 min, 120 min, 180 min.
+2. The default selection is 60 min (1h).",High,Positive,Hard,,
+TC-105,User,Slot Picker,Changing duration updates total price,A slot is selected; pricePerHour=600,"1. Observe the initial total with 60 min selected
+2. Tap 90 min
+3. Tap 120 min
+4. Tap 180 min","1. Price recalculates for each selection: 60m=₹600, 90m=₹900, 120m=₹1200, 180m=₹1800.
+2. Formula used: pricePerHour × (duration/60).",Critical,Positive,Hard,,
+TC-106,User,Slot Picker,Price calculation correct,pricePerHour=600; duration selected=90 min,"1. Select a slot
+2. Select 90 min duration
+3. Read the price display",1. Displayed price is exactly ₹900.,Critical,Positive,Hard,,
+TC-107,User,Slot Picker,End time exceeding close time is blocked,Turf closes at 22:00; 9:30 PM slot selected,"1. Select the 21:30 slot
+2. Attempt to select 120 min (2h) duration","1. The 2h option is either disabled or, when tapped, shows an inline warning ('Exceeds closing time').
+2. The Confirm Slot button remains disabled.",High,Negative,Hard,,
+TC-108,User,Slot Picker,Slots before open time not shown,Turf opens at 06:00,1. Observe the earliest available slot in the grid,"1. No slot before 06:00 is rendered.
+2. Slots begin at 06:00 and proceed in hourly/30-min increments.",High,Positive,Hard,,
+TC-109,User,Slot Picker,Confirm Slot disabled with no selection,Slot Picker is freshly opened,"1. Do not select any slot
+2. Observe the Confirm Slot button",1. The Confirm Slot button is greyed out and non-tappable.,High,Negative,Hard,,
+TC-110,User,Slot Picker,Confirm Slot enabled after selection,Slot Picker open; no slot selected yet,"1. Tap a free slot
+2. Observe the Confirm Slot button",1. The button transitions to its active (brand-coloured) state and is tappable.,High,Positive,Hard,,
+TC-111,User,Slot Picker,Confirm Slot navigates to Booking Confirm,A slot and duration are selected,1. Tap Confirm Slot,"1. App navigates to /booking-confirm.
+2. Navigation args include: turf, startTime, endTime, durationMinutes, amount.",Critical,Positive,Hard,,
+TC-112,User,Slot Picker,Slot blocked by owner not shown,Owner has blocked the 18:00 slot on a given date,1. Select that date in Slot Picker,"1. The blocked 18:00 slot is either absent from the grid or rendered disabled.
+2. Users cannot select or book it.",High,Positive,Hard,,
+TC-113,User,Booking Confirm,Summary shows correct turf name and address,Navigated from Slot Picker with valid turf,1. Observe the booking summary card,"1. Turf name matches the one selected.
+2. Full address is displayed below the name.",Critical,Positive,Hard,,
+TC-114,User,Booking Confirm,Date displayed in full format,Booking Confirm is open,1. Observe the date field,"1. Date is formatted as 'Monday, Apr 15, 2026' (day name, month-day, year).",High,Positive,Hard,,
+TC-115,User,Booking Confirm,Time range displayed correctly,Slot selected was 18:00 for 90 min,1. Observe the time field,"1. Time range shows '6:00 PM – 7:30 PM' (or the 24h equivalent).
+2. Start and end match the selected slot + duration.",Critical,Positive,Hard,,
+TC-116,User,Booking Confirm,Duration shown correctly,Duration selected was 1 hour,1. Observe the duration label,1. Label reads '1 hour' (or '1h').,High,Positive,Hard,,
+TC-117,User,Booking Confirm,Amount shown correctly,Price = 600/h; duration = 1h,1. Observe the amount field,"1. Amount shown is ₹600.
+2. Matches pricePerHour × (duration/60).",Critical,Positive,Hard,,
+TC-118,User,Booking Confirm,Player name and phone displayed,User is signed in,1. Observe the player details section,"1. User's full name is displayed.
+2. Masked phone (+91 XXXXXX1234) is shown.",High,Positive,Hard,,
+TC-119,User,Booking Confirm,Email field shown if no saved email,User has no email set in Firestore,"1. Navigate to Booking Confirm
+2. Locate the email field","1. A text input for email is visible.
+2. Input is empty with a hint (e.g. 'e.g. you@example.com').",High,Positive,Hard,,
+TC-120,User,Booking Confirm,Email field hidden if user has saved email,User has email set in Firestore,1. Navigate to Booking Confirm,"1. The email input is NOT shown as an editable field.
+2. The saved email is shown read-only instead (or hidden entirely).",High,Positive,Hard,,
+TC-121,User,Booking Confirm,Valid email accepted,Email input is visible,"1. Type 'test@example.com'
+2. Tap Confirm and Pay","1. No validation error.
+2. Payment flow proceeds.",High,Positive,Hard,,
+TC-122,User,Booking Confirm,Invalid email shows error,Email input is visible,"1. Type 'notanemail' (no @)
+2. Tap Confirm and Pay","1. Inline validation error: 'Enter a valid email address'.
+2. Payment is not initiated.",High,Negative,Hard,,
+TC-123,User,Booking Confirm,Non-refundable disclaimer visible,Booking Confirm is open,1. Scroll to the disclaimer area,1. A clearly visible warning/disclaimer is shown stating the booking is non-refundable once paid.,High,Positive,Hard,,
+TC-124,User,Booking Confirm,Confirm and Pay calls createRazorpayOrder,All fields valid,"1. Tap Confirm and Pay
+2. Inspect backend logs","1. Cloud Function createRazorpayOrder is invoked with params: turfId, startTime, endTime, durationMinutes.
+2. Client does NOT send the amount (server computes it).",Critical,Positive,Hard,,
+TC-125,User,Booking Confirm,Loading state shown while creating order,All valid; user taps Confirm and Pay,"1. Tap Confirm and Pay
+2. Observe the screen immediately","1. A full-screen or inline spinner/overlay is shown.
+2. Button is disabled to prevent double-submit.",High,Positive,Hard,,
+TC-126,User,Booking Confirm,Razorpay opens with correct amount,CF returns a valid orderId,"1. Complete tap flow
+2. Wait for Razorpay checkout sheet","1. Razorpay checkout appears with the exact calculated total.
+2. Amount matches pricePerHour × (duration/60).",Critical,Positive,Hard,,
+TC-127,User,Booking Confirm,Cancelling Razorpay returns user to confirm,Razorpay sheet is open,1. Close the Razorpay sheet without paying (X or Back),"1. User returns to Booking Confirm screen.
+2. No booking document is created in Firestore.
+3. The slot is not reserved for this user.",High,Negative,Hard,,
+TC-128,User,Booking Confirm,Payment failure shows snackbar,Razorpay sheet is open,"1. Enter a failing Razorpay test card
+2. Complete the failing flow","1. An error snackbar is shown (e.g. 'Payment failed. Try again.').
+2. The booking is not confirmed.",High,Negative,Hard,,
+TC-129,User,Booking Confirm,Double-tap Confirm does not duplicate,"Booking Confirm is open, all valid",1. Tap Confirm and Pay twice very rapidly (within 500ms),"1. Only ONE createRazorpayOrder call is made.
+2. The _isProcessing flag blocks the second tap.
+3. Only one Razorpay sheet opens.",Critical,Negative,Hard,,
+TC-130,User,Payment Processing,Processing screen shown after payment,Razorpay returns success,1. Complete a successful test payment,"1. App transitions to /payment-processing.
+2. A spinner and message 'Verifying payment…' is shown.",High,Positive,Hard,,
+TC-131,User,Payment Processing,Valid verification navigates to Booking Confirmed,CF verifyRazorpayPayment returns success,1. Complete a successful payment,"1. After verification returns success, app navigates to /booking-confirmed.
+2. The BookingModel is passed forward via navigation args.",Critical,Positive,Hard,,
+TC-132,User,Payment Processing,Invalid signature rejected,CF returns a signature mismatch error,1. Simulate a signature failure (dev build) or allow the CF to return error,"1. Processing screen shows an error state with: 'Payment could not be verified.'
+2. Two buttons are offered: Retry and Back to Home.",High,Negative,Hard,,
+TC-133,User,Payment Processing,Retry button re-attempts verification,Error state visible on processing screen,1. Tap Retry,"1. verifyRazorpayPayment is called again with the same params.
+2. UI returns to the processing/loading state.",High,Positive,Hard,,
+TC-134,User,Payment Processing,Back to Home returns to /home on failure,Error state visible,1. Tap Back to Home,"1. App navigates to /home.
+2. No partial booking is created.",High,Negative,Hard,,
+TC-135,User,Payment Processing,/payment-processing bypasses auth redirect,App is on /payment-processing,"1. Inspect the _bypassPaths list
+2. Confirm /payment-processing is included","1. The auth redirect logic skips redirection for /payment-processing.
+2. User is not kicked back to login mid-verification.",Critical,Positive,Hard,,
+TC-136,User,Payment Processing,Back button during processing handled,Processing screen is visible,"1. While verification is pending, press Android back","1. The app does not crash.
+2. Back is either blocked during processing or safely handled (e.g. shows a 'Please wait' toast).",High,Edge Case,Hard,,
+TC-137,User,Booking Confirmed,Booking code displayed in TRF-XXXX-XXXX format,A booking has just been created,"1. Land on Booking Confirmed
+2. Read the booking code","1. Code follows format TRF-XXXX-XXXX (three groups separated by dashes).
+2. Each 4-character segment uses the safe alphabet (no 0, 1, O, I).",Critical,Positive,Hard,,
+TC-138,User,Booking Confirmed,Booking code excludes O 0 I 1 characters,Booking just created,1. Inspect the booking code on screen,"1. The code contains no zero, uppercase O, one, or uppercase I characters.
+2. Only characters from the safe alphabet are used.",High,Positive,Hard,,ALPHABET used by code generator
+TC-139,User,Booking Confirmed,QR code displayed below booking code,Booking has a bookingCode,1. Observe the area below the booking code,"1. A 200x200 QR code is rendered inside a white container.
+2. Above the QR, the label 'SCAN TO VERIFY' is shown.",Critical,Positive,Hard,,qr_flutter library
+TC-140,User,Booking Confirmed,QR encodes plain booking code,Booking code is TRF-K7X9-M2P4,1. Use an external QR scanner app to scan the QR,"1. The scanner decodes the QR to the exact plain text 'TRF-K7X9-M2P4'.
+2. No extra JSON or metadata is encoded.",Critical,Positive,Hard,,
+TC-141,User,Booking Confirmed,QR has dark navy modules on white background,Booking Confirmed screen open,1. Observe the QR visually,"1. QR modules (squares) are rendered in AppTheme.primaryDark.
+2. Background behind the QR is solid white.
+3. Eye and module shapes are square (not rounded).",Medium,Positive,Hard,,
+TC-142,User,Booking Confirmed,Booking details correct,Booking just created,1. Read each detail on the Booking Confirmed screen,"1. Turf name matches booking.
+2. Date matches booking.
+3. Time range matches booking.
+4. Amount matches amount paid.",Critical,Positive,Hard,,
+TC-143,User,Booking Confirmed,Countdown timer shows time until booking,Booking startTime is in the future,1. Observe the countdown area,"1. A live countdown is displayed (e.g. '2d 14h 32m until start').
+2. It ticks down at 1-second resolution.",High,Positive,Hard,,
+TC-144,User,Booking Confirmed,Tap-to-copy booking code works,Booking code is visible,1. Tap the booking code element,"1. Code is copied to clipboard.
+2. A snackbar appears: 'Booking code copied!'.",High,Positive,Hard,,
+TC-145,User,Booking Confirmed,Download Receipt generates and shares PDF,Booking exists,1. Tap Download Receipt,"1. A PDF is generated containing: booking code, turf, date, time, amount, player name.
+2. The native share sheet opens with the PDF attached.",High,Positive,Hard,,
+TC-146,User,Booking Confirmed,View My Bookings navigates,Booking Confirmed is open,1. Tap View My Bookings,1. App navigates to /my-bookings.,High,Positive,Hard,,
+TC-147,User,Booking Confirmed,Back to Home returns to /home,Booking Confirmed is open,"1. Tap Back to Home
+2. After landing, press hardware back","1. App navigates to /home.
+2. Pressing back again does not return to the payment flow.",High,Positive,Hard,,
+TC-148,User,Booking Confirmed,Double-tap Download Receipt does not duplicate generation,Booking Confirmed is open,1. Tap Download Receipt twice rapidly,"1. Only one PDF is generated.
+2. Second tap is ignored while the first is still generating.",Medium,Negative,Hard,,
+TC-149,User,My Bookings,Bookings load for the user,User has at least one booking,1. Navigate to /my-bookings,"1. The list loads within 3 seconds.
+2. Each card shows turf name, sport, date, time, status, amount.",Critical,Positive,Medium,,
+TC-150,User,My Bookings,Upcoming tab shows confirmed/pending future bookings,User has at least one confirmed and one pending future booking,"1. Open /my-bookings
+2. Tap the Upcoming tab","1. Only bookings with startTime > now are shown.
+2. Status filter: confirmed or pending.
+3. Cancelled and completed bookings are excluded here.",Critical,Positive,Medium,,
+TC-151,User,My Bookings,Past tab shows completed/cancelled/expired,User has past bookings in various states,"1. Open /my-bookings
+2. Tap the Past tab","1. All bookings with endTime < now are shown regardless of status.
+2. Completed, cancelled, and expired bookings appear here.",High,Positive,Medium,,
+TC-152,User,My Bookings,Empty state for new user with no bookings,User has zero bookings,"1. Open /my-bookings
+2. Check both tabs","1. Upcoming shows an empty state ('No upcoming bookings yet').
+2. Past shows an empty state ('No past bookings').",Medium,Positive,Easy,,
+TC-153,User,My Bookings,Booking card shows all key info,User has bookings,1. Observe a booking card in My Bookings,"1. Sport icon, turf name, date, time range, amount, and a colour-coded status badge are all visible.",High,Positive,Medium,,
+TC-154,User,My Bookings,Status badge confirmed is green,Confirmed booking exists,1. Observe its status badge,"1. Badge background colour is green.
+2. Label text is 'Confirmed'.",High,Positive,Easy,,
+TC-155,User,My Bookings,Status badge pending is orange,Pending booking exists,1. Observe its status badge,"1. Badge background is orange/amber.
+2. Label text is 'Pending'.",High,Positive,Easy,,
+TC-156,User,My Bookings,Status badge completed is grey,Completed booking exists,1. Observe its status badge,"1. Badge background is grey.
+2. Label text is 'Completed'.",Medium,Positive,Easy,,
+TC-157,User,My Bookings,Status badge cancelled is red,Cancelled booking exists,1. Observe its status badge,"1. Badge background is red.
+2. Label text is 'Cancelled'.",Medium,Positive,Easy,,
+TC-158,User,My Bookings,Tap card navigates to Booking Detail,Bookings visible,1. Tap any booking card,"1. App navigates to /booking-detail.
+2. The BookingModel is passed via navigation args.",High,Positive,Easy,,
+TC-159,User,My Bookings,Real-time update on new booking,User is currently viewing /my-bookings,"1. Keep /my-bookings open
+2. From the same account (second device) complete a new booking","1. The new booking appears in the Upcoming tab within a few seconds.
+2. No manual refresh was needed.",High,Positive,Medium,,
+TC-160,User,Booking Detail,Full booking info displayed,Navigated from My Bookings,1. Observe all fields on the Booking Detail screen,"1. Turf name, date, time, duration, amount, booking code, and current status are all shown.",Critical,Positive,Hard,,
+TC-161,User,Booking Detail,Turf hero image loaded from Firestore,Turf has thumbnailUrl set,1. Open Booking Detail,"1. Hero image is fetched from turfs/{turfId}.thumbnailUrl.
+2. Image is displayed at top with a loading shimmer placeholder.",High,Positive,Hard,,
+TC-162,User,Booking Detail,Booking code box visible for confirmed booking,Booking has status=confirmed and bookingCode set,1. Open the detail,1. A dedicated code box is visible with the booking code and a copy icon.,High,Positive,Hard,,
+TC-163,User,Booking Detail,QR code displayed for confirmed booking,Booking is confirmed with a code,1. Scroll to the QR section,"1. A 180x180 QR encoding the booking code is shown.
+2. It is the same code used for scanning by the owner.",Critical,Positive,Hard,,
+TC-164,User,Booking Detail,Copy code button copies to clipboard,Code is visible,1. Tap the copy icon next to the code,"1. Code is copied to the device clipboard.
+2. Snackbar: 'Booking code copied'.",High,Positive,Hard,,
+TC-165,User,Booking Detail,Download Receipt shown if pdfUrl exists,booking.pdfUrl is set,1. Observe the action buttons,1. The Download Receipt button is visible.,Medium,Positive,Hard,,
+TC-166,User,Booking Detail,Download Receipt opens PDF,pdfUrl is valid,1. Tap Download Receipt,1. The PDF opens in an external PDF viewer or share sheet is presented.,Medium,Positive,Hard,,
+TC-167,User,Booking Detail,Rate button shown for completed + not rated,booking is completed and hasRated=false,1. Open the detail,1. A 'Rate this Turf' button is visible and enabled.,High,Positive,Hard,,
+TC-168,User,Booking Detail,Rate button hidden for already rated,hasRated=true,1. Open the detail,1. The Rate button is NOT displayed.,High,Positive,Hard,,
+TC-169,User,Booking Detail,Rate button hidden for non-completed booking,status is confirmed or pending (not completed),1. Open the detail,1. The Rate button is NOT displayed.,High,Negative,Hard,,
+TC-170,User,Booking Detail,Cancel Booking button visible for pending,status=pending,1. Open the detail,1. A red outlined 'Cancel Booking' button is visible at the bottom.,High,Positive,Hard,,
+TC-171,User,Booking Detail,Cancel Booking hidden for confirmed/completed/cancelled,status is anything other than pending,1. Open detail for each non-pending state,1. Cancel Booking button is NOT shown.,High,Negative,Hard,,
+TC-172,User,Booking Detail,Cancel Booking shows confirmation dialog,status=pending,1. Tap Cancel Booking,"1. A confirmation dialog appears: 'Are you sure? This cannot be undone.'
+2. Two options: 'No, Keep it' and 'Yes, Cancel'.",High,Positive,Hard,,
+TC-173,User,Booking Detail,Cancel dialog No keeps booking intact,Cancel dialog open,"1. Tap 'No, Keep it'","1. Dialog closes.
+2. Booking status remains pending.",High,Positive,Hard,,
+TC-174,User,Booking Detail,Cancel dialog Yes cancels booking,Cancel dialog open,"1. Tap 'Yes, Cancel'","1. Firestore booking.status is updated to 'cancelled'.
+2. Snackbar: 'Booking cancelled'.
+3. Detail screen pops back to previous screen.",Critical,Positive,Hard,,
+TC-175,User,Booking Detail,Cancel during network failure shows error,Device offline,1. Cancel a pending booking while offline,"1. Error snackbar shown (e.g. 'Could not cancel. Check your connection.').
+2. Booking status is NOT changed.",High,Negative,Hard,,
+TC-176,User,Booking Detail,Tap Rate navigates to Rating screen,Booking is completed and not yet rated,1. Tap 'Rate this Turf',"1. App navigates to /rate.
+2. Navigation args include the BookingModel.",Critical,Positive,Hard,,
+TC-177,User,Rating Screen,Rating screen loads for completed booking,Navigated from Booking Detail,1. Open /rate for a completed booking,"1. Screen loads with turf name and booking context shown.
+2. Star row is interactive.",High,Positive,Hard,,
+TC-178,User,Rating Screen,Duplicate rating check runs on open,User has already rated this turf,1. Open /rate for a different completed booking of the same turf,"1. A duplicate check runs on mount.
+2. The Already Rated view is shown instead of the rating form.",Critical,Negative,Hard,,
+TC-179,User,Rating Screen,Already rated view shows congratulations,Duplicate rating detected,1. Trigger the Already Rated view,"1. A friendly message is shown (e.g. 'You've already rated this turf. Thank you!').
+2. The form is not displayed.",High,Positive,Hard,,
+TC-180,User,Rating Screen,Star selection 1 to 5 available,Rating screen open,"1. Tap star 1
+2. Tap star 2
+3. Tap star 3
+4. Tap star 4
+5. Tap star 5","1. Each tap updates the selected star count.
+2. Stars below the tapped one are filled; above are empty.",High,Positive,Hard,,
+TC-181,User,Rating Screen,Star labels update as selection changes,Rating screen open,1. Tap stars 1 through 5 sequentially,"1. Label under stars updates: 1=Poor, 2=Fair, 3=Good, 4=Very Good, 5=Excellent!",Medium,Positive,Hard,,
+TC-182,User,Rating Screen,Submit disabled without star selection,Rating screen open; 0 stars selected,1. Observe Submit button,1. Submit button is greyed out and non-tappable.,High,Negative,Hard,,
+TC-183,User,Rating Screen,Review field optional up to 300 chars,Rating screen open; stars selected,"1. Leave review field empty
+2. Tap Submit",1. Rating is submitted successfully without a review.,High,Positive,Hard,,
+TC-184,User,Rating Screen,Review field limited to 300 chars,Rating screen open,1. Type more than 300 characters in the review field,"1. Input is capped at 300 characters.
+2. A counter may be shown indicating 300/300.",Medium,Positive,Hard,,
+TC-185,User,Rating Screen,Submit creates rating document,Stars selected; user is signed in,"1. Tap Submit
+2. Inspect Firestore ratings collection","1. A new rating doc is created with fields: userId, turfId, bookingId, stars, review, createdAt (server timestamp).",Critical,Positive,Hard,,
+TC-186,User,Rating Screen,Booking hasRated updated after submission,Rating submitted,1. Re-open the same Booking Detail,"1. booking.hasRated is now true.
+2. booking.ratingId points to the new rating doc.",Critical,Positive,Hard,,
+TC-187,User,Rating Screen,Turf averageRating recalculated atomically,Rating just submitted,1. Inspect the turf document in Firestore,"1. turf.averageRating is recomputed.
+2. turf.totalRatings is incremented by 1.
+3. Both updates happened in a single transaction (consistent).",Critical,Positive,Complex,,
+TC-188,User,Ratings List,Ratings list shows all ratings for turf,Turf has several ratings,1. Open /ratings/:turfId,"1. All ratings are listed with: user name, star count, review text, date.
+2. Sorted by createdAt descending.",High,Positive,Medium,,
+TC-189,User,Ratings List,Summary shows average and total count,Turf has ratings,1. Observe the header section,"1. A large average rating number is shown.
+2. A star row reflects the average.
+3. Total count is shown (e.g. '23 reviews').",High,Positive,Medium,,
+TC-190,User,Ratings List,Star breakdown bar chart displayed,Turf has ratings across different star values,1. Observe the breakdown section,"1. 5 horizontal bars are shown (1-star to 5-star).
+2. Each bar's width reflects the percentage of ratings at that score.
+3. Percentages are labelled next to each bar.",Medium,Positive,Medium,,
+TC-191,User,Ratings List,Empty state when no ratings,Turf has zero ratings,1. Open /ratings/:turfId,1. Empty state is shown: 'No ratings yet'.,Medium,Positive,Easy,,
+TC-192,User,Ratings List,Admin-edited ratings show indicator,Rating has editedByAdmin=true,1. Find that rating in the list,1. A visible indicator (badge or icon) is shown on the rating card indicating it was admin-edited.,Low,Positive,Easy,,
+TC-193,User,Profile,Name email and masked phone displayed,User is signed in; profile has values set,1. Navigate to Profile tab,"1. Name, email (if set), and masked phone (+91 XXXXX XX1234) are all shown.",High,Positive,Medium,,
+TC-194,User,Profile,Stats show total bookings and hours,User has at least 1 confirmed or completed booking,1. Observe the stats row on Profile,"1. 'Total Bookings' shows the count of confirmed+completed bookings.
+2. 'Total Hours' shows the sum of their durations in hours.",High,Positive,Medium,,
+TC-195,User,Profile,Edit Profile button navigates,Profile is open,1. Tap 'Edit Profile',1. App navigates to /edit-profile.,High,Positive,Easy,,
+TC-196,User,Profile,Logout with confirmation works,Profile is open,"1. Tap Logout
+2. Tap Confirm in the dialog","1. Firebase session is cleared.
+2. App navigates to /mobile-login.",Critical,Positive,Medium,,
+TC-197,User,Edit Profile,Name pre-filled with current name,User has name='Ahmed',1. Open /edit-profile,1. Name field is pre-populated with 'Ahmed'.,High,Positive,Medium,,
+TC-198,User,Edit Profile,Email pre-filled with current email,User has email='ahmed@example.com',1. Open /edit-profile,"1. Email field is pre-populated with 'ahmed@example.com'.
+2. Field is editable (no longer read-only).",High,Positive,Medium,,Email field is now editable
+TC-199,User,Edit Profile,Email field empty if user has no email,User has no email set,1. Open /edit-profile,"1. Email field is empty.
+2. Hint text is shown: 'e.g. name@example.com'.",High,Positive,Medium,,
+TC-200,User,Edit Profile,Valid name update saves to Firestore,Edit Profile open,"1. Change the name to 'Ahmed Khan'
+2. Tap Save","1. Firestore user.name is updated.
+2. Success snackbar shown.
+3. Screen pops back to Profile.",High,Positive,Medium,,
+TC-201,User,Edit Profile,Empty name shows validation error,Edit Profile open,"1. Clear the name field
+2. Tap Save","1. Validation error: 'Name is required'.
+2. No update made to Firestore.",Medium,Negative,Easy,,
+TC-202,User,Edit Profile,Valid email format accepted and saved,Edit Profile open,"1. Type 'test@example.com' in email
+2. Tap Save",1. Firestore user.email is updated to 'test@example.com'.,High,Positive,Medium,,
+TC-203,User,Edit Profile,Invalid email format shows validation error,Edit Profile open,"1. Type 'notanemail'
+2. Tap Save","1. Validation error: 'Enter a valid email address'.
+2. No update to Firestore.",High,Negative,Easy,,
+TC-204,User,Edit Profile,Empty email is allowed (optional field),Edit Profile open,"1. Clear the email field
+2. Tap Save","1. Save succeeds.
+2. Firestore user.email is set to null.",High,Positive,Medium,,
+TC-205,User,Edit Profile,Mobile number is locked and cannot be changed,Edit Profile open,"1. Locate the mobile field
+2. Try to edit it","1. Field is read-only (disabled input).
+2. A lock icon is visible.
+3. Hint/helper text: 'Mobile cannot be changed'.",High,Positive,Medium,,
+TC-206,User,Edit Profile,Only changed fields sent to Firestore,Edit Profile open with email already set,"1. Change only the name field
+2. Tap Save
+3. Inspect the Firestore update payload (e.g. via network or logs)","1. Only { name: newName } is sent in the update.
+2. Email field is NOT included in the payload.",Medium,Positive,Medium,,
+TC-207,User,Edit Profile,Save button shows spinner during save,Edit Profile open; valid values,1. Tap Save,1. Save button shows a spinner and is disabled until the network call completes.,Medium,Positive,Medium,,
+TC-208,Owner,Role Redirect,Owner login redirects to /owner/dashboard,Account has role=owner,1. Complete OTP login with the owner's mobile,"1. After successful auth, app navigates to /owner/dashboard.
+2. Home screen is not shown.",Critical,Positive,Medium,,
+TC-209,Owner,Role Redirect,Owner without turfId handled gracefully,Owner account has turfId=null in Firestore,1. Sign in as the unassigned owner,"1. App does not crash.
+2. Dashboard loads with an empty state or 'No turf assigned' guidance message.",High,Edge Case,Medium,,
+TC-210,Owner,Role Redirect,Regular user cannot access /owner/*,User is signed in with role=user,1. Attempt to navigate to /owner/dashboard via deep link,1. Route guard redirects to /home.,Critical,Negative,Medium,,
+TC-211,Owner,Role Redirect,Owner cannot access /home,Owner is signed in with role=owner,1. Attempt to navigate to /home,1. Route guard redirects to /owner/dashboard.,Critical,Negative,Medium,,
+TC-212,Owner,Dashboard,Owner Dashboard shows welcome with current date,Owner is signed in,1. Navigate to /owner/dashboard,"1. A welcome header is shown with the owner's name or 'Hello, [Name]'.
+2. Today's date in 'Monday, Apr 15' format is visible.",High,Positive,Medium,,
+TC-213,Owner,Dashboard,Today's bookings count is accurate,Owner's turf has confirmed and pending bookings for today,1. Look at the Today's Bookings KPI card,1. The count equals the number of confirmed+pending bookings on the owner's turf for today.,Critical,Positive,Medium,,
+TC-214,Owner,Dashboard,Today's earnings sum is accurate,Owner has confirmed/completed bookings today,1. Look at Today's Earnings KPI,"1. The value equals the sum of booking.amount for all confirmed/completed bookings today, formatted with ₹ prefix.",Critical,Positive,Medium,,
+TC-215,Owner,Dashboard,Pending settlement shows this week's total,Owner has confirmed bookings this week,1. Look at Pending Settlement KPI,"1. Value equals the sum of bookings from Monday 00:00 to now.
+2. Formatted with ₹ and comma separators for thousands.",High,Positive,Medium,,
+TC-216,Owner,Dashboard,Next settlement date is next Monday,Today is any weekday,1. Look at Next Settlement label,"1. Shows the upcoming Monday's date.
+2. If today is Monday, shows this Monday (if before settlement time) or next Monday.",Medium,Positive,Medium,,
+TC-217,Owner,Dashboard,Today's bookings preview shows up to 3,Owner has 4+ bookings today,1. Scroll to the Today's Bookings preview,"1. At most 3 of the day's bookings are shown in the preview.
+2. If more exist, a 'View all' link is shown.",High,Positive,Medium,,
+TC-218,Owner,Dashboard,Notifications bell shows last 5 bookings,Owner has recent bookings,1. Tap the bell icon,"1. Bottom sheet opens.
+2. Last 5 confirmed/completed bookings are listed with player name, time, amount.",High,Positive,Medium,,
+TC-219,Owner,Dashboard,Stats update in real-time,Dashboard open; new booking just created on owner's turf,"1. Keep owner dashboard open on device A
+2. From device B complete a new booking on this turf","1. Today's Bookings KPI increments within seconds.
+2. Earnings KPI updates if the new booking is confirmed.
+3. No manual refresh required.",High,Positive,Medium,,
+TC-220,Owner,All Bookings,Date picker range: past 90 days to future 30 days,All Bookings screen open,1. Tap the date picker,"1. Picker allows selection only between (today - 90) and (today + 30).
+2. Dates outside this range are disabled.",High,Positive,Medium,,
+TC-221,Owner,All Bookings,Select date loads bookings for that day,Owner has bookings on April 12,"1. Open All Bookings
+2. Select April 12","1. The list shows all confirmed/completed/pending/cancelled bookings on Apr 12 for this turf.
+2. Each card shows time, player, duration, amount, status.",Critical,Positive,Medium,,
+TC-222,Owner,All Bookings,Booking card shows all info,Bookings exist,1. Observe a booking card,"1. Time pill, turf name, user name, duration, amount, status, and booking code (if confirmed) are all visible.",High,Positive,Medium,,
+TC-223,Owner,All Bookings,Active NOW label shows on currently ongoing booking,A booking started at 14:00 and ends at 15:00; now is 14:30,"1. Select today in date picker
+2. Locate that booking card","1. A 'NOW' label is displayed on that card.
+2. It is only shown between startTime and endTime.",High,Positive,Easy,,
+TC-224,Owner,All Bookings,Booking code shown on confirmed booking card,Confirmed booking exists,1. Observe the card,1. The booking code (TRF-XXXX-XXXX) is visible on the card.,High,Positive,Easy,,
+TC-225,Owner,All Bookings,Status color confirmed is green,Confirmed booking,1. Observe status pill,1. Pill background is green.,High,Positive,Medium,,
+TC-226,Owner,All Bookings,Status color pending is orange,Pending booking,1. Observe status pill,1. Pill background is orange.,Medium,Positive,Medium,,
+TC-227,Owner,All Bookings,Status color completed is dark,Completed booking,1. Observe status pill,1. Pill background is dark/grey.,Medium,Positive,Medium,,
+TC-228,Owner,All Bookings,Sport filter All shows all bookings,Bookings across multiple sports exist,1. Tap 'All Slots' chip,1. All bookings are shown regardless of sport.,High,Positive,Medium,,
+TC-229,Owner,All Bookings,Sport filter Cricket,Cricket bookings exist,1. Tap Cricket chip,1. Only cricket bookings are shown.,High,Positive,Medium,,
+TC-230,Owner,All Bookings,Sport filter Football,Football bookings exist,1. Tap Football chip,1. Only football bookings are shown.,High,Positive,Medium,,
+TC-231,Owner,All Bookings,Empty state for date with no bookings,Owner's turf has no bookings on a given date,1. Select that date in the date picker,1. 'No bookings' empty state is displayed.,Medium,Positive,Easy,,
+TC-232,Owner,Verify,Verify tab shows ARRIVALS WINDOW header,Owner on /owner/verify,1. Navigate to the Verify tab,"1. Header text 'ARRIVALS WINDOW' is visible.
+2. Today's date is shown beneath it.",High,Positive,Hard,,
+TC-233,Owner,Verify,Verify tab shows 1-hour pre-window instructions,Owner on Verify tab,1. Observe the instructional text area,1. A clear instruction is visible: 'Slots appear here 1 hour before start. Tap a slot to scan the player's QR.',High,Positive,Hard,,
+TC-234,Owner,Verify,Empty state when no slots in pre-window,No bookings starting within the next 60 minutes,1. Open Verify tab,1. Empty state hint is shown (e.g. 'No arrivals at this time. Next slot at ...').,Medium,Positive,Hard,,
+TC-235,Owner,Verify,Slot appears in STARTING SOON 1 hour before start,Confirmed booking at 18:00; current time is 17:15,"1. At 17:00 or later, open Verify tab","1. The 18:00 booking appears under the STARTING SOON section.
+2. It shows player name, time range, and booking code.",Critical,Positive,Hard,,
+TC-236,Owner,Verify,Slot does not appear more than 1 hour before start,Confirmed booking at 20:00; current time is 17:00,1. Open Verify at 17:00,"1. The 20:00 booking is NOT visible yet.
+2. It will appear at 19:00.",Critical,Positive,Hard,,
+TC-237,Owner,Verify,Slot moves from STARTING SOON to NOW at start time,Booking at 18:00; time just crossed 18:00,"1. At 17:30 observe booking under STARTING SOON
+2. Wait until 18:00
+3. Observe again","1. At 18:00 the card moves to the NOW section.
+2. Card background darkens/changes to indicate active status.",High,Positive,Hard,,
+TC-238,Owner,Verify,Slot disappears after endTime,Booking ended at 19:00; current time is 19:05,"1. At 18:55 observe the booking
+2. Wait until 19:01
+3. Refresh Verify or wait for auto-update","1. After the booking's endTime, the card is removed from the Verify list.",Critical,Positive,Hard,,
+TC-239,Owner,Verify,Slot card shows player name and time range,Slot is within the pre-window,1. Observe a slot card,"1. Player name is shown.
+2. Time range is shown formatted via formatTimeIst.
+3. A hint line reads 'Tap to scan player QR'.",High,Positive,Hard,,
+TC-240,Owner,Verify,Slot card shows booking code,Booking has bookingCode set,1. Observe a slot card,1. Booking code (TRF-XXXX-XXXX) is visible on the card.,Medium,Positive,Hard,,
+TC-241,Owner,Verify,Unconfirmed (pending) bookings excluded,A pending booking starts in 30 minutes,1. Open Verify tab,"1. The pending booking is NOT shown.
+2. Only confirmed bookings appear.",Critical,Positive,Hard,,
+TC-242,Owner,Verify,Completed bookings excluded,A booking was already verified and completed,1. Open Verify tab,1. The completed booking is NOT shown.,Critical,Positive,Hard,,
+TC-243,Owner,Verify,Owner without turfId sees empty state,Owner account has turfId=null,"1. Sign in as that owner
+2. Open Verify tab","1. Message 'No turf assigned to your account' is shown.
+2. No crash.",High,Edge Case,Hard,,
+TC-244,Owner,Verify,Tap slot opens QR scanner with scoped params,Slot is in the pre-window,1. Tap a slot card,"1. App navigates to /owner/scan.
+2. Navigation args include: expectedBookingId, expectedBookingCode, expectedPlayerName, slotStart, slotEnd.",Critical,Positive,Hard,,
+TC-245,Owner,Verify,No manual bypass - cannot confirm without scanning,Verify tab open,1. Inspect the entire Verify screen carefully,"1. There is NO button or link to 'Mark as arrived' manually.
+2. Confirming arrival is only possible via the scanner flow.",Critical,Security,Hard,,
+TC-246,Owner,Verify,Uses TimeService.nowCorrected for filtering,Pre-window filter uses server time,"1. Open Verify
+2. Change device clock forward by 10 hours
+3. Observe Verify","1. The pre-window filter remains correct (server-time anchored).
+2. The 1-hour window is based on TimeService.nowCorrected(), not device clock.",Critical,Security,Hard,,
+TC-247,Owner,QR Scanner,Scanner opens when slot tapped,Slot was tapped in Verify,"1. Tap a slot card
+2. Observe the next screen","1. ScanQrScreen opens.
+2. Camera preview is visible.",Critical,Positive,Hard,,
+TC-248,Owner,QR Scanner,Camera permission requested on first use,Camera permission has not been granted,1. Open scanner for the first time (fresh install),"1. OS camera permission dialog appears.
+2. On grant, camera preview activates.",High,Positive,Hard,,
+TC-249,Owner,QR Scanner,Camera preview displays,Camera permission granted,1. Open scanner,1. Live camera feed is displayed fullscreen behind the overlay.,Critical,Positive,Hard,,
+TC-250,Owner,QR Scanner,Green corner brackets overlay shown,Scanner open,1. Observe the overlay,"1. Four green L-shaped corner brackets are shown, framing the scan area.",Medium,Positive,Hard,,
+TC-251,Owner,QR Scanner,Instruction shows player name in scoped mode,Scoped mode with expectedPlayerName='Ahmed',1. Open scanner from Verify,1. Instruction text is shown such as 'Scan Ahmed's QR code'.,High,Positive,Hard,,
+TC-252,Owner,QR Scanner,Torch toggle button present,Scanner open,1. Observe top-right of screen,"1. A torch/flash toggle icon is visible.
+2. Tapping it toggles the flash on/off.",Medium,Positive,Hard,,
+TC-253,Owner,QR Scanner,Camera switch button present,Scanner open,1. Observe top-right of screen,"1. A camera switch icon (front/back) is visible.
+2. Tapping it swaps to the other camera.",Low,Positive,Hard,,
+TC-254,Owner,QR Scanner,Valid QR triggers verification,Scanner is actively detecting,1. Point the camera at a valid player's QR code,"1. verifyBookingCode Cloud Function is invoked.
+2. The Booking Result bottom sheet opens with the booking details.",Critical,Positive,Hard,,
+TC-255,Owner,QR Scanner,Only QR format scanned (no barcodes),Scanner open,1. Point the camera at a standard barcode (1D),"1. The barcode is ignored.
+2. Only QR codes are detected and processed.",Medium,Positive,Hard,,
+TC-256,Owner,QR Scanner,Invalid format QR rejected immediately,Scanner open,1. Scan a QR containing arbitrary text (e.g. 'hello world'),1. An error sheet is shown: 'Not a valid Turfex booking code.',High,Negative,Hard,,
+TC-257,Owner,QR Scanner,Mismatched QR in scoped mode rejected,Scanner scoped to booking X; a different booking Y's QR is scanned,"1. Open scanner for booking X's slot
+2. Scan a QR belonging to a different booking Y","1. An error is shown: 'This QR is for a different slot. Go back and tap the correct slot.'
+2. verifyBookingCode is NOT called for booking Y.",Critical,Security,Hard,,
+TC-258,Owner,QR Scanner,Double-scan prevented via sheet flag,Scanner open; valid QR detected and sheet opened,"1. While the sheet is open, point at the QR again rapidly","1. The second detection is ignored.
+2. verifyBookingCode is only called once.",High,Positive,Hard,,
+TC-259,Owner,QR Scanner,Valid QR opens Booking Result Sheet,Verification succeeded,1. Scan a valid QR,"1. Bottom sheet opens showing: player name, booking code, date, time range, amount.",Critical,Positive,Hard,,
+TC-260,Owner,QR Scanner,Booking sheet shows Confirm Arrival button,Booking sheet is open,1. Observe the sheet CTAs,1. A prominent 'Confirm Arrival' button is visible.,Critical,Positive,Hard,,
+TC-261,Owner,QR Scanner,Confirm Arrival calls confirmArrival CF,Booking sheet open,"1. Tap Confirm Arrival
+2. Inspect backend logs","1. confirmArrival CF is invoked with bookingId.
+2. Loading spinner shown on the button while pending.",Critical,Positive,Hard,,
+TC-262,Owner,QR Scanner,Success pops scanner and shows snackbar,confirmArrival CF succeeded,1. Tap Confirm Arrival and wait for success,"1. Both the sheet and scanner close.
+2. User returns to Verify tab.
+3. Snackbar: 'Arrival confirmed!'",Critical,Positive,Hard,,
+TC-263,Owner,QR Scanner,Cloud Function sets verifiedAt timestamp,Arrival just confirmed,1. Check the booking document in Firestore,1. booking.verifiedAt is set to a server timestamp (approximately now).,Critical,Positive,Hard,,
+TC-264,Owner,QR Scanner,Cloud Function sets verifiedBy to owner UID,Arrival just confirmed,1. Check the booking document,1. booking.verifiedBy equals the current signed-in owner's uid.,Critical,Positive,Hard,,
+TC-265,Owner,QR Scanner,Cloud Function sets verifiedVia to 'owner',Arrival just confirmed,1. Check the booking document,1. booking.verifiedVia = 'owner'.,High,Positive,Hard,,
+TC-266,Owner,QR Scanner,Booking status transitions to completed,Arrival just confirmed,1. Check booking.status in Firestore,1. booking.status = 'completed'.,Critical,Positive,Hard,,
+TC-267,Owner,QR Scanner,already-exists returns Already Checked In,Booking was previously verified and completed,1. Scan the QR of that completed booking,"1. Sheet shows: 'This booking has already been verified.'
+2. alreadyVerified flag is set on the sheet.",Critical,Negative,Hard,,
+TC-268,Owner,QR Scanner,deadline-exceeded shown for expired slot,Booking endTime is already in the past (server time),1. Scan that booking's QR,"1. Error shown: 'This QR has expired — the slot has ended.'
+2. expired flag is set.",Critical,Negative,Hard,,
+TC-269,Owner,QR Scanner,not-found shown for invalid code,Scanned code does not exist in Firestore,1. Manually generate a fake-looking QR and scan it,1. Error: 'Invalid booking code.',High,Negative,Hard,,
+TC-270,Owner,QR Scanner,permission-denied for wrong turf,Scanned booking belongs to a different owner's turf,1. Scan a QR from another owner's turf,"1. Error: 'This booking is not for your turf.'
+2. Booking details are NOT revealed.",Critical,Security,Hard,,
+TC-271,Owner,QR Scanner,failed-precondition shown for pending booking,Booking scanned has status=pending,1. Scan the pending booking's QR,"1. Error message from CF is surfaced.
+2. Confirm Arrival cannot be performed.",High,Negative,Hard,,
+TC-272,Owner,QR Scanner,Failed confirm during clock cutoff handled,Booking endTime is 19:00:00; owner taps Confirm at 19:00:02,"1. Scan QR just before 19:00
+2. Tap Confirm Arrival just after 19:00","1. CF returns deadline-exceeded.
+2. Error shown: 'The slot has ended. Cannot confirm.'",High,Edge Case,Hard,,
+TC-273,Owner,QR Scanner,Manual entry button visible at bottom,Scanner open,1. Scroll to bottom or look below camera preview,1. 'Enter code manually' button with a keyboard icon is visible.,High,Positive,Hard,,
+TC-274,Owner,QR Scanner,Manual entry dialog opens,Scanner open,1. Tap 'Enter code manually',1. An AlertDialog opens with a text input for the code and Submit button.,High,Positive,Hard,,
+TC-275,Owner,QR Scanner,Manual entry auto-inserts dashes,Manual entry dialog open,"1. Type 'TRFKX9M2P4' (no dashes)
+2. Observe formatting","1. The input is auto-formatted to 'TRF-KX9-M2P4' as you type.
+2. _BookingCodeFormatter enforces the dash-separated format.",Medium,Positive,Hard,,
+TC-276,Owner,QR Scanner,Manual entry is case-insensitive,Manual entry dialog open,1. Type 'trf-k7x9-m2p4' in lowercase,"1. Text is auto-uppercased before validation.
+2. Submission proceeds as if user typed uppercase.",Medium,Positive,Hard,,
+TC-277,Owner,QR Scanner,Manual entry uses same validation as QR,Manual entry dialog open,"1. Enter a valid code manually
+2. Tap Submit","1. _handleCode is called (same path as QR).
+2. verifyBookingCode CF is invoked.
+3. Success flow proceeds identically to QR scan.",Critical,Positive,Hard,,
+TC-278,Owner,QR Scanner,Manual entry in scoped mode enforces match,Scanner scoped to booking X; user opens manual entry,"1. Open manual entry
+2. Enter the code for a different booking Y","1. Error: 'This QR is for a different slot.'
+2. Rejection matches QR-scan behaviour.",High,Security,Hard,,
+TC-279,Owner,QR Scanner,Back button returns to Verify tab,Scanner open,1. Press Android back,"1. App returns to /owner/verify.
+2. No arrival is confirmed.",High,Positive,Hard,,
+TC-280,Owner,QR Scanner,Camera resources released on dispose,Scanner currently active,"1. Navigate away from the scanner (back button or drawer)
+2. Inspect camera indicator on device","1. MobileScannerController is disposed.
+2. Camera is released (indicator turns off; other apps can use camera).",High,Positive,Hard,,
+TC-281,Owner,Block Slots,Block Slots navigation from Dashboard,Owner dashboard open,1. Tap the 'Block Slots' quick action,1. App navigates to /owner/block-slots.,Medium,Positive,Medium,,
+TC-282,Owner,Block Slots,Owner can block a time slot on a future date,Future date with no existing booking in that slot,"1. Select a future date
+2. Select a specific time slot
+3. Confirm block","1. Slot is added to the blocked_slots collection in Firestore.
+2. It is no longer available for user booking on that date.",High,Positive,Medium,,
+TC-283,Owner,Block Slots,Blocked slots hidden from user slot picker,Slot has been blocked by owner,"1. As a user, open Slot Picker for that date","1. The blocked slot is either absent or shown greyed/disabled.
+2. Users cannot select or book it.",Critical,Positive,Medium,,
+TC-284,Owner,Block Slots,Owner cannot block a slot that already has a booking,A confirmed booking exists in the target slot,1. Attempt to block that slot via the UI,"1. An error/warning is shown (e.g. 'Cannot block: existing booking').
+2. The block is not created.",High,Negative,Medium,,
+TC-285,Owner,Blocked Dates,Blocked dates screen lists all active blocks,Owner has one or more active blocks,1. Open the Blocked Dates screen,"1. List shows each active block with: date, time range, sport (if applicable).
+2. Each entry has an unblock action.",Medium,Positive,Medium,,
+TC-286,Owner,Blocked Dates,Owner can unblock a previously blocked slot,An active block exists,"1. Tap unblock on a blocked entry
+2. Confirm","1. Block record is removed from Firestore.
+2. Slot becomes available to users again.",High,Positive,Medium,,
+TC-287,Owner,Support,Support screen accessible from Profile,Owner Profile open,1. Tap 'Help and Support',1. Support screen opens with contact info or support form.,Low,Positive,Easy,,
+TC-288,Owner,Earnings,Hero card shows total lifetime earnings,Owner has bookings,1. Open Earnings screen,"1. A hero card shows the total lifetime earnings in ₹ with thousands separators (e.g. ₹1,24,500).
+2. A 'LIVE STATS' badge is visible.",High,Positive,Hard,,
+TC-289,Owner,Earnings,This week earnings and count shown,Owner has bookings in the current week,1. Scroll to the weekly breakdown,1. This week's earnings in ₹ and the count of bookings are displayed.,High,Positive,Hard,,
+TC-290,Owner,Earnings,Last week earnings and count shown,Owner has bookings in last week,1. Scroll to the weekly breakdown,1. Last week's earnings and booking count are displayed.,Medium,Positive,Hard,,
+TC-291,Owner,Earnings,Settlement history shows last 5,Owner has 5+ settlement records,1. Scroll to the settlement history section,"1. Last 5 settlements are listed with: date range, booking count, gross amount, fee, net amount.",High,Positive,Hard,,
+TC-292,Owner,Earnings,Platform fee -5% shown,A settlement record exists,1. Observe a settlement row,1. Platform fee is clearly labelled as '-5%' (e.g. −₹600).,High,Positive,Hard,,
+TC-293,Owner,Earnings,Net = gross minus platform fee,Settlement record exists,1. Verify math on a row,"1. Net equals gross minus platform fee.
+2. If gross=₹12,000 and fee=5% (₹600), net=₹11,400.",Critical,Positive,Hard,,
+TC-294,Owner,Earnings,Settlement status PROCESSED badge green,Processed settlement exists,1. Observe badge,1. Green 'PROCESSED' badge.,Medium,Positive,Hard,,
+TC-295,Owner,Earnings,Settlement status PENDING badge,Pending settlement exists,1. Observe badge,1. Orange/yellow 'PENDING' badge.,Medium,Positive,Hard,,
+TC-296,Owner,Earnings,Info card explains settlement cycle,Earnings screen open,1. Scroll to the info card,1. A short explainer text is shown describing the Monday settlement cycle (e.g. 'Settlements are processed every Monday for the previous week').,Low,Positive,Hard,,
+TC-297,Owner,Profile,Owner profile shows name phone and TURF OWNER badge,Owner signed in,1. Open Owner Profile,"1. Name, masked phone, and a 'TURF OWNER' badge are all visible.",High,Positive,Easy,,
+TC-298,Owner,Profile,Linked turf name shown below badge,Owner has turfId set,1. Open Owner Profile,1. Turf name is fetched from Firestore and displayed below the TURF OWNER badge.,High,Positive,Easy,,
+TC-299,Owner,Profile,Missing turf name handled gracefully,Owner has a turfId but the turf doc is missing/invalid,1. Open Owner Profile with a broken turfId,"1. App does not crash.
+2. Turf name section is simply absent (or shows a fallback dash).",Medium,Edge Case,Medium,,
+TC-300,Owner,Profile,Payout method section visible,Owner Profile open,1. Scroll to payout section,"1. 'LINKED BANK ACCOUNT' section is visible.
+2. Helper text: 'Contact support to update'.",Medium,Positive,Medium,,
+TC-301,Owner,Profile,Logout from owner profile works,Owner Profile open,"1. Tap Logout
+2. Confirm","1. Firebase session is cleared.
+2. App navigates to /mobile-login.",Critical,Positive,Medium,,
+TC-302,Admin Panel,Login,Admin login page opens at localhost:3000,Admin panel running locally,1. Open browser to http://localhost:3000,"1. Admin login page loads.
+2. Email and password inputs are visible.
+3. Sign In button visible.",Critical,Positive,Easy,,
+TC-303,Admin Panel,Login,Default credentials box visible,Login page open,1. Observe the page,1. A 'DEFAULT CREDENTIALS' info box is shown with the seed admin email/password hint.,High,Positive,Medium,,
+TC-304,Admin Panel,Login,Valid admin credentials log in,Account with role=admin exists,"1. Enter admin@turfex.com
+2. Enter Turfex@123
+3. Click Sign In","1. Auth succeeds.
+2. User is navigated to the Admin Dashboard.",Critical,Positive,Medium,,
+TC-305,Admin Panel,Login,Invalid credentials show error,Login page open,"1. Enter wrong email/password
+2. Click Sign In","1. Error message displayed: 'Invalid credentials or not an admin account.'
+2. User remains on login page.",High,Negative,Medium,,
+TC-306,Admin Panel,Login,Non-admin user cannot access panel,An account exists with role=user,"1. Enter that user's email and password
+2. Click Sign In","1. Login check verifies role.
+2. Access denied.
+3. User is signed out.",Critical,Negative,Medium,,
+TC-307,Admin Panel,Login,Persistent session across browser refreshes,Admin currently signed in,"1. Close the tab
+2. Reopen http://localhost:3000","1. Admin session is preserved.
+2. User is taken directly to the Dashboard.",Critical,Positive,Medium,,
+TC-308,Admin Panel,Login,Admin logout clears session,Admin signed in,"1. Click Logout in top-right
+2. Reopen the panel","1. Session is cleared.
+2. Reopening the panel shows the login page again.",Critical,Positive,Medium,,
+TC-309,Admin Panel,Dashboard,Bookings today count accurate,Bookings exist today,1. Observe Bookings Today card,1. Count matches the number of confirmed+completed bookings with startTime on today's date.,High,Positive,Medium,,
+TC-310,Admin Panel,Dashboard,Revenue today accurate,Confirmed bookings today,1. Observe Revenue Today card,"1. Value equals the sum of amount for all confirmed/completed bookings today.
+2. Formatted with ₹ prefix.",High,Positive,Medium,,
+TC-311,Admin Panel,Dashboard,Active turfs count accurate,Mix of active and inactive turfs,1. Observe Active Turfs card,1. Count equals the number of turfs with isActive=true.,High,Positive,Medium,,
+TC-312,Admin Panel,Dashboard,Registered users count excludes admin,Admin account is in the users collection,1. Observe Registered Users card,"1. The count excludes role=admin and role=owner accounts.
+2. Only role=user accounts are counted.",Critical,Positive,Medium,,
+TC-313,Admin Panel,Dashboard,Bookings bar chart renders Mon-Sun,Bookings exist across the week,1. Observe the bookings chart,"1. Bar chart is rendered with 7 bars labelled Mon, Tue, Wed, Thu, Fri, Sat, Sun.
+2. Bar heights reflect the count per day.",Medium,Positive,Medium,,
+TC-314,Admin Panel,Dashboard,Revenue line chart renders,Revenue data exists,1. Observe the revenue chart,"1. Line chart renders with daily data points.
+2. Axes are labelled (date on X, amount on Y).",Medium,Positive,Medium,,
+TC-315,Admin Panel,Dashboard,Recent bookings table shows latest 5,5+ bookings exist,1. Scroll to Recent Bookings table,"1. Latest 5 bookings are shown with columns: Booking ID, Turf, Player, Time, Amount, Status.
+2. Sorted by createdAt descending.",High,Positive,Medium,,
+TC-316,Admin Panel,Dashboard,Send Notification quick action works,Dashboard open,1. Click Send Notification quick action,1. Navigated to the Notifications compose page.,Medium,Positive,Medium,,
+TC-317,Admin Panel,Dashboard,Create Owner Account quick action,Dashboard open,1. Click Create Owner Account quick action,1. Navigated to the Owners page.,Medium,Positive,Medium,,
+TC-318,Admin Panel,Dashboard,Add New Turf quick action,Dashboard open,1. Click Add New Turf quick action,1. Navigated to the Turfs page.,Medium,Positive,Medium,,
+TC-319,Admin Panel,Dashboard,Auto-refresh of stats,Booking is made while admin views dashboard,"1. Keep dashboard open
+2. Create a new booking via mobile app
+3. Wait a few seconds","1. Stats (Bookings Today, Revenue Today) update automatically.
+2. No manual refresh needed.",Medium,Positive,Medium,,
+TC-320,Admin Panel,Dashboard,Dashboard loads within 5 seconds,Data exists in Firestore,"1. Navigate to Dashboard
+2. Start a stopwatch
+3. Stop when all widgets are visible","1. All KPI cards, charts, and recent table are visible within 5 seconds.",Medium,Positive,Medium,,
+TC-321,Admin Panel,Bookings,Bookings page shows all bookings,Bookings exist,1. Click Bookings in sidebar,"1. Table shows all bookings with columns: ID, Turf, Player, Schedule, Amount, Code, Status.",High,Positive,Medium,,
+TC-322,Admin Panel,Bookings,Filter by status All,Bookings exist,1. Select 'All' in status filter,1. All bookings shown regardless of status.,High,Positive,Medium,,
+TC-323,Admin Panel,Bookings,Filter by status Confirmed,Confirmed bookings exist,1. Select 'Confirmed',1. Only confirmed bookings shown.,High,Positive,Medium,,
+TC-324,Admin Panel,Bookings,Filter by status Completed,Completed bookings exist,1. Select 'Completed',1. Only completed bookings shown.,High,Positive,Medium,,
+TC-325,Admin Panel,Bookings,Filter by status Pending,Pending bookings exist,1. Select 'Pending',1. Only pending bookings shown.,High,Positive,Medium,,
+TC-326,Admin Panel,Bookings,Filter by status Cancelled,Cancelled bookings exist,1. Select 'Cancelled',1. Only cancelled bookings shown.,High,Positive,Medium,,
+TC-327,Admin Panel,Bookings,Search by booking code,Bookings exist,1. Type a booking code in the search input,1. Matching booking appears at the top of results.,High,Positive,Medium,,
+TC-328,Admin Panel,Bookings,Search by player name,Bookings exist,1. Type a player's name,"1. Bookings by that player are shown.
+2. Partial matches also appear.",High,Positive,Medium,,
+TC-329,Admin Panel,Bookings,CSV export downloads,Bookings exist,1. Click Export CSV button,"1. A CSV file downloads with the current filtered/searched bookings.
+2. Columns match the table.",Medium,Positive,Medium,,
+TC-330,Admin Panel,Turfs,Turfs page shows all turfs,Turfs exist,1. Click Turfs in sidebar,"1. Table lists all turfs with: name, sport, price/hr, area, status (active/inactive).",High,Positive,Medium,,
+TC-331,Admin Panel,Turfs,Active/Inactive filter works,Both active and inactive turfs exist,1. Filter by Active,1. Only turfs with isActive=true are shown.,High,Positive,Medium,,
+TC-332,Admin Panel,Turfs,Add New Turf form opens,Turfs page open,1. Click Add New Turf,1. Form modal/page opens with required fields visible.,High,Positive,Easy,,
+TC-333,Admin Panel,Turfs,Create turf with valid data,Add New Turf form open,"1. Fill all required fields with valid data
+2. Click Save","1. A new turf document is created in Firestore.
+2. The new turf appears in the list with isActive=true by default.",Critical,Positive,Medium,,
+TC-334,Admin Panel,Turfs,Turf name required,Add form open,"1. Leave name blank
+2. Click Save","1. Validation error shown.
+2. Turf not created.",High,Negative,Medium,,
+TC-335,Admin Panel,Turfs,Price must be positive,Add form open,"1. Enter 0 or -100 in price
+2. Click Save","1. Validation error shown.
+2. Turf not created.",High,Negative,Medium,,
+TC-336,Admin Panel,Turfs,Sport selection required,Add form open,"1. Leave sport unselected
+2. Click Save","1. Validation error shown.
+2. Turf not created.",High,Negative,Medium,,
+TC-337,Admin Panel,Turfs,Open time must be before close time,Add form open,"1. Set openTime=22:00 and closeTime=06:00
+2. Click Save","1. Validation error ('Close time must be after open time').
+2. Turf not created.",High,Negative,Medium,,
+TC-338,Admin Panel,Turfs,Edit turf saves changes,Turf exists,"1. Click edit on a turf
+2. Change price from 600 to 700
+3. Save","1. Firestore turf.pricePerHour updated to 700.
+2. Updated value reflects in the list.",High,Positive,Medium,,
+TC-339,Admin Panel,Turfs,Deactivate turf sets isActive=false,Active turf exists,1. Click deactivate on a turf,"1. turf.isActive becomes false.
+2. Turf is hidden from users in the mobile app.",Critical,Positive,Medium,,
+TC-340,Admin Panel,Turfs,Reactivate turf sets isActive=true,Inactive turf exists,1. Click reactivate,"1. turf.isActive becomes true.
+2. Turf becomes visible to users again.",Critical,Positive,Medium,,
+TC-341,Admin Panel,Turfs,Turf photos upload,Add/Edit form open,1. Upload 1–3 photos via the photo upload control,"1. Photos are uploaded to Cloud Storage.
+2. URLs are saved to turf.photoUrls array.
+3. Photos appear in the mobile app's turf detail gallery.",Medium,Positive,Medium,,
+TC-342,Admin Panel,Owners,Owners list shows role=owner accounts,Owners exist,1. Click Owners in sidebar,"1. Table lists only accounts with role=owner.
+2. Each row shows name, phone, email, turf, created date.",High,Positive,Medium,,
+TC-343,Admin Panel,Owners,Create owner with valid data,Create Owner form open,"1. Fill all fields
+2. Submit","1. A new Firebase Auth user is created with role=owner.
+2. An auto-generated password is shown on the page for admin to share.",Critical,Positive,Medium,,
+TC-344,Admin Panel,Owners,Owner linked to turfId,New owner created with a selected turf,1. Inspect the user document in Firestore,1. user.turfId equals the selected turf's id.,Critical,Positive,Medium,,
+TC-345,Admin Panel,Owners,Auto-generated password shown to admin,Owner just created,1. Observe the success state,"1. Generated password is clearly displayed with a copy button.
+2. Admin is prompted to share it with the owner securely.",Critical,Positive,Easy,,
+TC-346,Admin Panel,Owners,Duplicate mobile prevented,An owner already exists with mobile 9000000000,1. Try to create another owner with the same mobile,"1. Error shown: 'Mobile already in use'.
+2. New owner is not created.",High,Negative,Medium,,
+TC-347,Admin Panel,Users,Users page shows only role=user,Mixed roles in users collection,1. Click Users in sidebar,"1. Only role=user accounts are listed.
+2. Admins and owners are excluded.",Critical,Positive,Medium,,
+TC-348,Admin Panel,Users,Total count matches rows,Users exist,"1. Observe the count above the table
+2. Count the rows manually",1. The displayed total equals the number of rows shown.,High,Positive,Medium,,
+TC-349,Admin Panel,Users,User table shows name phone email date,Users exist,1. Observe row content,"1. Each row shows: avatar, name, phone, email, created date.",High,Positive,Medium,,
+TC-350,Admin Panel,Users,No users found state,users collection is empty,1. Open the Users page,1. 'No users found' message is shown instead of an empty table.,Medium,Positive,Medium,,
+TC-351,Admin Panel,Notifications,History is default view,Notifications page,1. Click Notifications in sidebar,"1. Default view is History.
+2. Recently sent notifications are listed.",High,Positive,Medium,,
+TC-352,Admin Panel,Notifications,Send Notification opens compose view,Notifications page open,1. Click + Send Notification,"1. Compose form is shown on the left.
+2. Live preview card is shown on the right.",High,Positive,Hard,,
+TC-353,Admin Panel,Notifications,Title counter max 80,Compose view open,1. Type a long title approaching 80 chars,"1. Counter shows X/80 in real time.
+2. At 72+ the counter turns yellow.
+3. Input is hard-capped at 80.",Medium,Positive,Easy,,
+TC-354,Admin Panel,Notifications,Message counter max 240,Compose view open,1. Type a long message,"1. Counter shows X/240 in real time.
+2. At 220+ it turns yellow.
+3. Input is capped at 240.",Medium,Positive,Easy,,
+TC-355,Admin Panel,Notifications,Quick emoji inserts at cursor,Compose view open; cursor mid-word in the message,1. Click an emoji quick button,1. Emoji is inserted at the current cursor position (not at the end).,High,Positive,Medium,,
+TC-356,Admin Panel,Notifications,Live preview updates,Compose view open,1. Type characters in title and message,"1. The preview card updates in real time, matching the current text.",High,Positive,Medium,,
+TC-357,Admin Panel,Notifications,Target All Users,Compose view open,1. Click 'All Users' target,"1. Button is highlighted as selected.
+2. Notification will target all role=user accounts.",High,Positive,Medium,,
+TC-358,Admin Panel,Notifications,Target New Users,Compose view open,1. Click 'New Users',1. Notification targets users with 0 bookings.,High,Positive,Medium,,
+TC-359,Admin Panel,Notifications,Target Active Players,Compose view open,1. Click 'Active Players',1. Targets users with at least 1 booking in the last 30 days.,High,Positive,Medium,,
+TC-360,Admin Panel,Notifications,Target Inactive Players,Compose view open,1. Click 'Inactive Players',1. Targets users inactive for 30+ days.,High,Positive,Medium,,
+TC-361,Admin Panel,Notifications,Target Owners broadcast,Compose view open,1. Click 'Owners',1. Targets role=owner accounts.,High,Positive,Medium,,owners broadcast target
+TC-362,Admin Panel,Notifications,Send Now sends immediately,Valid form; OneSignal configured,"1. Fill form
+2. Click Send Now","1. Cloud Function is invoked.
+2. Notification is sent to the target audience.
+3. Logged entry appears in History.",Critical,Positive,Hard,,
+TC-363,Admin Panel,Notifications,Empty title shows validation,Compose view open,"1. Leave title empty
+2. Click Send","1. Validation error on title.
+2. Notification not sent.",High,Negative,Medium,,
+TC-364,Admin Panel,Notifications,Empty message shows validation,Compose view open,"1. Leave message empty
+2. Click Send","1. Validation error on message.
+2. Notification not sent.",High,Negative,Medium,,
+TC-365,Admin Panel,Notifications,Schedule Later datetime picker,Compose view open,1. Select 'Schedule Later' option,"1. A datetime picker appears.
+2. User can pick a future date and time.",High,Positive,Medium,,
+TC-366,Admin Panel,Notifications,Scheduled saved with pending status,Schedule Later selected with a future time,"1. Pick a future datetime
+2. Click Schedule","1. Firestore record created with status=pending and scheduledAt set.
+2. Entry appears in Scheduled view.",Critical,Positive,Medium,,
+TC-367,Admin Panel,Notifications,Cannot schedule in past,Compose view open,1. Select a past datetime,1. Validation error shown (e.g. 'Scheduled time must be in the future').,High,Negative,Medium,,
+TC-368,Admin Panel,Notifications,Scheduled view shows pending,A pending scheduled notification exists,1. Click Scheduled tab,"1. Pending notifications are listed with title, scheduled time, and target.",High,Positive,Medium,,
+TC-369,Admin Panel,Notifications,Cancel scheduled notification,Pending scheduled notification exists,1. Click Cancel on the row,"1. Status changes to cancelled.
+2. Notification is removed from pending list.",High,Positive,Medium,,
+TC-370,Admin Panel,Notifications,History filter by date range,Notifications across multiple dates exist,"1. Set From=2026-04-01 To=2026-04-07
+2. Apply",1. Only notifications sent within that range are shown.,Medium,Positive,Medium,,
+TC-371,Admin Panel,Notifications,History filter by category,Multiple categories exist,1. Select a category in filter,1. Only notifications matching that category are shown.,Medium,Positive,Medium,,
+TC-372,Admin Panel,Notifications,OneSignal App ID auto-filled,First-time Settings page access,1. Open Settings,"1. App ID is pre-filled.
+2. 'Auto-filled' badge is shown next to the field.",High,Positive,Medium,,
+TC-373,Admin Panel,Notifications,Save REST API Key shows Configured,Valid OneSignal REST API key,"1. Paste key
+2. Click Save",1. Badge next to the field changes from 'Not set' to '✓ Configured'.,Critical,Positive,Medium,,
+TC-374,Admin Panel,Ratings,Ratings page shows all,Ratings exist,1. Click Ratings in sidebar,"1. Table lists all ratings with: user name, turf name, stars, review, date.",High,Positive,Medium,,
+TC-375,Admin Panel,Ratings,Filter by turf name,Multiple turfs with ratings,1. Filter by a specific turf,1. Only ratings for that turf are shown.,Medium,Positive,Medium,,
+TC-376,Admin Panel,Ratings,Filter by star rating,Ratings across different star values,1. Filter by 5 stars,1. Only 5-star ratings are shown.,Medium,Positive,Medium,,
+TC-377,Admin Panel,Ratings,Admin delete rating,Rating exists,"1. Click Delete on a rating
+2. Confirm in dialog","1. adminDeleteRating CF is invoked.
+2. Rating doc is removed.
+3. Turf averageRating is recalculated.",Critical,Positive,Medium,,
+TC-378,Admin Panel,Ratings,Admin edit rating,Rating exists,"1. Click Edit on a rating
+2. Change review or stars
+3. Save","1. adminEditRating CF is invoked.
+2. Rating is updated.
+3. editedByAdmin flag is set to true.",High,Positive,Medium,,
+TC-379,Admin Panel,Ratings,No ratings found state,ratings collection is empty,1. Open Ratings page,1. 'No ratings found' message is shown.,Medium,Positive,Medium,,
+TC-380,Admin Panel,Settlements,Settlements shows all records,Settlements exist,1. Click Settlements in sidebar,"1. Table lists all records with: owner, week, count, gross, fee, net, status.",High,Positive,Medium,,
+TC-381,Admin Panel,Settlements,Filter by status pending,Pending settlements exist,1. Filter by Pending,1. Only pending records shown.,High,Positive,Medium,,
+TC-382,Admin Panel,Settlements,Filter by status processed,Processed settlements exist,1. Filter by Processed,1. Only processed records shown.,High,Positive,Medium,,
+TC-383,Admin Panel,Settlements,Gross fee net amounts shown,Records exist,1. Observe a row,"1. Gross, platformFee, and net are visible with correct math (net = gross − fee).",High,Positive,Easy,,
+TC-384,Admin Panel,Settlements,Mark as processed,Pending settlement exists,1. Click Mark Processed,"1. status=processed.
+2. processedAt is set to server timestamp.",Critical,Positive,Medium,,
+TC-385,Push Notifications,User,User receives booking confirmed push,OneSignal configured; user has push permission,1. Complete a successful booking,"1. Within 30 seconds, a push notification arrives on the user's device.
+2. Title/body mention the booking code.",Critical,Positive,Medium,,
+TC-386,Push Notifications,Owner,Owner receives new booking push,Owner has push permission,1. Any user books a slot on the owner's turf,1. Owner's device receives a push notification about the new booking.,Critical,Positive,Medium,,
+TC-387,Push Notifications,User,User receives 'Game on' push on arrival confirm,Owner confirms arrival for a user's booking,1. Owner taps Confirm Arrival,"1. Within 30 seconds, the user receives a push: 'Game on! 🎯 Welcome to [TurfName]...'.",Critical,Positive,Medium,,
+TC-388,Push Notifications,Reminders,Start reminder 1 hour before booking,Confirmed booking starts in 1 hour,1. Wait until ~1 hour before startTime,1. A 'Your game starts in 1 hour' push is received.,High,Positive,Medium,,
+TC-389,Push Notifications,Reminders,End reminder 5 min after end,A booking just ended,1. Wait until ~5 minutes past endTime,1. An 'How was your game?' push is received prompting rating.,Medium,Positive,Medium,,
+TC-390,Push Notifications,Reminders,Rating reminder 24 hours after completion,Booking completed and !hasRated after 24h,1. Wait ~24 hours after booking completion,1. A rating reminder push is received.,Medium,Positive,Medium,,
+TC-391,Push Notifications,Reminders,No duplicate reminders sent,Booking has startReminderSent=true,1. Check booking document,"1. startReminderSent flag is true.
+2. No subsequent duplicate reminder is dispatched.",High,Positive,Medium,,
+TC-392,Push Notifications,Background,Notification received when app in background,App is minimised,"1. Minimise the app
+2. Trigger a notification","1. Notification appears in the Android notification drawer.
+2. Tapping it opens the app.",High,Positive,Medium,,
+TC-393,Push Notifications,Killed,Notification received when app killed,App is force-stopped,"1. Kill the app
+2. Trigger a notification",1. Notification still arrives (FCM delivers even when killed).,High,Positive,Medium,,
+TC-394,Push Notifications,Tap,Tap notification opens correct screen,Notification in drawer,1. Tap the notification,"1. App opens directly at the relevant screen (e.g. booking detail, home).",High,Positive,Easy,,
+TC-395,Audit Trail,Booking,verifiedAt set on arrival confirm,Arrival was just confirmed,1. Inspect booking doc in Firestore,1. booking.verifiedAt is a server Timestamp.,Critical,Positive,Medium,,
+TC-396,Audit Trail,Booking,verifiedBy set to owner uid,Arrival confirmed,1. Inspect booking doc,1. verifiedBy equals the owner's Firebase uid.,Critical,Positive,Medium,,
+TC-397,Audit Trail,Booking,verifiedVia set to 'owner',Arrival confirmed,1. Inspect booking doc,1. verifiedVia equals 'owner'.,High,Positive,Medium,,
+TC-398,Audit Trail,Booking,isNoShow true when completed without verifiedAt,Scheduler auto-completed a booking without owner verification,"1. After scheduler runs, call booking.isNoShow",1. Returns true.,High,Positive,Medium,,
+TC-399,Audit Trail,Booking,isNoShow false when properly verified,Owner-verified booking,1. Call booking.isNoShow,1. Returns false.,High,Positive,Medium,,
+TC-400,Audit Trail,Booking,autoCompletedAt set by scheduler for unscanned slots,Slot ended with no verification,"1. Wait for the scheduler job to run
+2. Check booking doc","1. autoCompletedAt is set.
+2. status=completed.",High,Positive,Medium,,
+TC-401,TimeService,Sync,nowCorrected used for Firestore comparisons,Verify screen code path,1. Review the verify screen code,1. Pre-window filtering uses TimeService.nowCorrected() and not nowIST or DateTime.now().,Critical,Security,Medium,,
+TC-402,TimeService,Sync,Changing device clock does not affect verify window,Sync succeeded; Verify open,"1. Open verify tab
+2. Change device clock forward by 10h
+3. Reopen Verify","1. The pre-window filter is unchanged (server-time anchored).
+2. Bookings appearing/disappearing are based on true server time.",Critical,Security,Medium,,
+TC-403,TimeService,Display,nowIST used for UI date display,Owner verify screen,1. Check the date label at the top,"1. The date is formatted from TimeService.nowIST().
+2. Shows India Standard Time wall-clock date.",Medium,Positive,Medium,,
+TC-404,TimeService,Sync,TimeService.toIst converts any DateTime correctly,UTC DateTime passed,1. Call TimeService.toIst(utcDt),1. Returns a DateTime shifted by +05:30.,Medium,Positive,Medium,,
+TC-405,TimeService,Sync,Fallback to device time if sync fails,Device offline at launch,"1. Airplane mode ON
+2. Launch app
+3. Inspect TimeService","1. TimeService.isSynced() returns false.
+2. nowCorrected returns device-based time as fallback.",High,Edge Case,Medium,,
+TC-406,Network & Edge Cases,Network,Login fails gracefully with no internet,Device offline,"1. Airplane mode ON
+2. Enter valid mobile and tap Send OTP","1. Error message shown: 'Network error. Check your connection.'
+2. No crash.",High,Negative,Medium,,
+TC-407,Network & Edge Cases,Network,Home shows error state offline,Device offline,"1. Sign in while online, then go offline
+2. Pull to refresh Home","1. Either cached data or an error state is shown.
+2. No crash; no infinite spinner.",High,Negative,Medium,,
+TC-408,Network & Edge Cases,Network,Booking fails gracefully offline at pay,Offline at Booking Confirm,"1. Open Booking Confirm
+2. Go offline
+3. Tap Confirm and Pay","1. Error shown: 'Network error.'
+2. No orphan booking or orphan Razorpay order is created.",High,Negative,Medium,,
+TC-409,Network & Edge Cases,Network,OTP send fails gracefully offline,Offline,"1. Open Mobile Login while offline
+2. Enter mobile and tap Send OTP","1. Error shown.
+2. No broken state (button recovers, can retry after reconnecting).",High,Negative,Medium,,
+TC-410,Network & Edge Cases,Concurrency,Two users booking same slot simultaneously,Two devices both attempt to book the same turf/slot/date,"1. On both devices, start booking for the same slot
+2. On both devices, tap Confirm and Pay at nearly the same moment","1. Only one booking succeeds (atomic slot.create()).
+2. The other device gets a slot-taken error and is returned to Slot Picker with that slot now greyed.",Critical,Edge Case,Complex,,
+TC-411,Network & Edge Cases,Concurrency,Slot TTL expires after 15 min,User started booking but abandoned without paying for 15+ minutes,"1. User A: start booking, do not pay
+2. Wait 15+ minutes
+3. User B: attempt to book the same slot","1. User B's attempt succeeds.
+2. User A's abandoned pending slot is auto-released.",Critical,Edge Case,Complex,,
+TC-412,Network & Edge Cases,Security,Server-side price validation,Attacker modifies the amount in createRazorpayOrder request,"1. Intercept the CF request
+2. Tamper with the amount value","1. CF ignores the client-sent amount.
+2. CF recomputes from Firestore (pricePerHour × duration).
+3. Order uses the correct server-computed amount.",Critical,Security,Complex,,
+TC-413,Network & Edge Cases,Security,Razorpay signature validation,Tampered payment response,1. Call verifyRazorpayPayment with a tampered signature,"1. HMAC verification fails.
+2. Booking is NOT confirmed.
+3. Error is logged on server.",Critical,Security,Complex,,
+TC-414,Network & Edge Cases,Security,Double-tap Confirm and Pay prevented,Booking Confirm open,1. Tap Confirm and Pay twice rapidly,"1. _isProcessing flag blocks the second call.
+2. Only one order is created.",Critical,Security,Complex,,
+TC-415,Network & Edge Cases,Security,verifyRazorpayPayment idempotent,Booking already confirmed,1. Call verifyRazorpayPayment again for the same booking,"1. CF returns the existing bookingCode.
+2. No duplicate booking is created.",High,Edge Case,Complex,,
+TC-416,Network & Edge Cases,Security,Booking code alphabet excludes ambiguous chars,Code generator,"1. Generate 100 codes programmatically
+2. Scan all for forbidden characters","1. None of the 100 codes contain 0, 1, O, or I.",High,Security,Complex,,
+TC-417,Network & Edge Cases,Validation,Booking at exact open time allowed,Turf opens at 06:00,1. Select the 06:00 slot,1. Slot is bookable (opening time is inclusive).,Medium,Edge Case,Medium,,
+TC-418,Network & Edge Cases,Validation,Slot ending exactly at close time allowed,Turf closes at 22:00,1. Select 21:00 slot with 60 min duration,"1. Slot ends at 22:00 exactly, which is allowed.",Medium,Edge Case,Medium,,
+TC-419,Network & Edge Cases,Validation,Slot starting at close time blocked,Turf closes at 22:00,1. Attempt to select a 22:00 slot,1. 22:00 slot is not shown in the grid (closing time is exclusive for starts).,Medium,Edge Case,Medium,,
+TC-420,Network & Edge Cases,Session,Expired session redirects to login,Token has expired,"1. Leave the app idle for an extended period
+2. Try to perform an authenticated action",1. Redirect to /mobile-login.,High,Edge Case,Medium,,
+TC-421,Network & Edge Cases,UI,Long turf name truncated with ellipsis,Turf with 50+ char name,1. Observe its card on Home,"1. Name is truncated with an ellipsis at the end.
+2. Card layout is not broken.",Medium,Edge Case,Medium,,
+TC-422,Network & Edge Cases,Navigation,Back during payment processing handled,Payment Processing screen visible,1. Press Android back,"1. Back is safely handled.
+2. App does not crash.
+3. Either back is blocked or user is safely returned.",High,Edge Case,Medium,,
+TC-423,Network & Edge Cases,Navigation,App backgrounded during Razorpay resumes correctly,Razorpay sheet is open,"1. Press home button to background the app
+2. Resume the app","1. Razorpay sheet resumes cleanly, OR the user is returned to Booking Confirm with a consistent state.
+2. No crash.",High,Edge Case,Medium,,
+TC-424,Network & Edge Cases,Data Isolation,Owner only sees own turf bookings,Two different owners on different turfs,"1. Owner A: check bookings
+2. Owner B: check bookings","1. Each owner only sees bookings for their own turf.
+2. No cross-turf data is leaked.",Critical,Security,Medium,,
+TC-425,Network & Edge Cases,Data Isolation,User only sees own bookings,Two users,1. Each user opens My Bookings,"1. Each sees only their own bookings, based on userId match.",Critical,Security,Medium,,
+TC-426,Network & Edge Cases,Navigation,OTP screen back returns to Mobile Login,OTP screen open,1. Press Android back,1. Returns to /mobile-login.,High,Positive,Medium,,
+TC-427,Network & Edge Cases,UI,Keyboard dismisses on tap outside,Any form with a focused input,"1. Focus a text input to open keyboard
+2. Tap outside the input",1. Keyboard dismisses.,Low,Positive,Easy,,
+TC-428,Network & Edge Cases,UI,Empty photoUrls handled gracefully,Turf with photoUrls=[],1. Open that turf's detail page,"1. Placeholder image is shown in the gallery.
+2. No crash and no broken-image icon.",Medium,Edge Case,Medium,,
+TC-429,Network & Edge Cases,Auth,too-many-requests error shown gracefully,OTP requested many times rapidly from same device,1. Tap Send OTP repeatedly and rapidly with different valid numbers,"1. Firebase returns too-many-requests.
+2. App shows error: 'Too many attempts. Try again later.'
+3. No crash.",High,Negative,Easy,,
+TC-430,Performance,Loading,Home turf cards within 3s,4G network,"1. Open Home cold
+2. Time until all cards are fully visible",1. All visible cards load within 3 seconds.,High,Positive,Medium,,
+TC-431,Performance,Loading,Admin dashboard within 5s,Data exists,"1. Open dashboard
+2. Time until all widgets are visible",1. All KPIs + charts + table visible within 5 seconds.,Medium,Positive,Medium,,
+TC-432,Performance,Loading,Slot picker availability within 2s,Select a date,"1. Tap a date in the date strip
+2. Time until grid refreshes",1. Slot grid refreshes within 2 seconds.,High,Positive,Medium,,
+TC-433,Performance,Scanner,QR scan detection within 500ms,Camera active,"1. Point camera at a QR
+2. Time until verification triggers",1. Detection + trigger happens in under 500 milliseconds.,High,Positive,Medium,,
+TC-434,Performance,Scroll,Home smooth with 10+ turfs,Home has 10+ turf cards,1. Scroll top-to-bottom of Home,1. No visible jank or frame drops.,Medium,Positive,Medium,,
+TC-435,Performance,Scroll,My Bookings smooth with many,User has 20+ bookings,1. Scroll My Bookings top-to-bottom,1. Scroll is smooth; no jank.,Medium,Positive,Medium,,

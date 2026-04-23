@@ -63,6 +63,26 @@ export const DEFAULT_DAILY_CAPACITY = 35
 export const DAILY_WEIGHT_CAP = 120
 export const DAILY_HARD_CAP = 45
 
+// Effort → minutes mapping. Used when CSV has an Effort column.
+export const EFFORT_MINUTES = {
+  Easy: 3,
+  Medium: 6,
+  Hard: 12,
+  Complex: 20,
+}
+export const EFFORT_OPTIONS = ['Easy', 'Medium', 'Hard', 'Complex']
+
+// Fallback minutes when no Effort column is provided, derived from priority.
+export const PRIORITY_MINUTES = {
+  Critical: 10,
+  High: 6,
+  Medium: 4,
+  Low: 3,
+}
+
+// Daily time budget for a tester, in minutes (~2.5 hours of focused execution).
+export const DEFAULT_DAILY_MINUTES = 150
+
 export const DEVICES = [
   'Android 14 — Pixel 8',
   'Android 13 — Samsung Galaxy S21',
