@@ -102,7 +102,7 @@ export default function TestCard({ tc, linkedBug }) {
         <div className="flex items-center gap-2 text-primary label-sm mb-2">
           <Lightbulb size={14} /> Expected Result
         </div>
-        <p className="text-body-lg italic text-ink">{tc.expectedResult || '—'}</p>
+        <ExpectedResult text={tc.expectedResult} />
       </section>
 
       {tc.remarks && (
@@ -111,6 +111,31 @@ export default function TestCard({ tc, linkedBug }) {
         </section>
       )}
     </div>
+  )
+}
+
+function ExpectedResult({ text }) {
+  if (!text) return <p className="text-body-lg italic text-ink">—</p>
+  // Split on numbered prefixes like "1. ", "2. ", "3. " — handles results
+  // authored as "1. foo. 2. bar. 3. baz" into discrete items.
+  const items = text
+    .split(/\s*(?=\d+\.\s)/g)
+    .map((s) => s.trim().replace(/^\d+\.\s*/, ''))
+    .filter(Boolean)
+  if (items.length <= 1) {
+    return <p className="text-body-lg italic text-ink">{text}</p>
+  }
+  return (
+    <ol className="space-y-2">
+      {items.map((item, i) => (
+        <li key={i} className="flex items-start gap-3">
+          <span className="w-6 h-6 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[12px] font-semibold shrink-0 mt-0.5">
+            {i + 1}
+          </span>
+          <span className="text-body-lg italic text-ink leading-relaxed">{item}</span>
+        </li>
+      ))}
+    </ol>
   )
 }
 
