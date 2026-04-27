@@ -10,6 +10,7 @@ import {
   Settings,
   HelpCircle,
   ArrowLeft,
+  Play,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useProject } from '../context/ProjectContext.jsx'
@@ -39,7 +40,9 @@ export default function ExecutionPage() {
   const [currentId, setCurrentId] = useState(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [elapsed, setElapsed] = useState(0)
-  const startedAt = useRef(Date.now())
+  const [phase, setPhase] = useState('idle') // 'idle' | 'running' | 'done'
+  const [finalElapsed, setFinalElapsed] = useState(0)
+  const startedAt = useRef(null)
 
   useEffect(() => {
     getRound(roundId).then(setRound)
@@ -69,9 +72,13 @@ export default function ExecutionPage() {
   }, [roundId])
 
   useEffect(() => {
-    const i = setInterval(() => setElapsed(Math.floor((Date.now() - startedAt.current) / 1000)), 1000)
+    if (phase !== 'running') return
+    const i = setInterval(
+      () => setElapsed(Math.floor((Date.now() - startedAt.current) / 1000)),
+      1000
+    )
     return () => clearInterval(i)
-  }, [])
+  }, [phase])
 
   const today = isoDate()
   const todayCases = useMemo(() => cases.filter((c) => c.batchDate === today), [cases, today])
@@ -86,38 +93,61 @@ export default function ExecutionPage() {
     if (current && !currentId) setCurrentId(current.id)
   }, [current, currentId])
 
+  // Reset phase + timer whenever the active test case changes.
+  // (startedAt ref is overwritten on Start, so it doesn't need a reset here.)
+  const [prevTestId, setPrevTestId] = useState(null)
+  if (current?.id !== prevTestId) {
+    setPrevTestId(current?.id || null)
+    setPhase('idle')
+    setElapsed(0)
+    setFinalElapsed(0)
+  }
+
+  function handleStart() {
+    if (!current || phase !== 'idle') return
+    startedAt.current = Date.now()
+    setElapsed(0)
+    setPhase('running')
+  }
+
   async function markPass() {
-    if (!current) return
+    if (!current || phase !== 'running') return
+    const taken = Math.floor((Date.now() - startedAt.current) / 1000)
     try {
       await updateTestCase(current.id, {
         status: TESTCASE_STATUS.PASSED,
         executedAt: new Date(),
         executedBy: profile.uid,
+        timeTakenSeconds: taken,
       })
       await incrementRoundCounts(roundId, { passed: 1, pending: -1 })
+      setFinalElapsed(taken)
+      setPhase('done')
       toast.success(`${current.testId} passed`)
-      advance()
     } catch (err) {
       toast.error(err.message)
     }
   }
 
   function startFail() {
-    if (!current) return
+    if (!current || phase !== 'running') return
     setDrawerOpen(true)
   }
 
   async function onBugSubmitted() {
     if (!current) return
+    const taken = Math.floor((Date.now() - startedAt.current) / 1000)
     try {
       await updateTestCase(current.id, {
         status: TESTCASE_STATUS.FAILED,
         executedAt: new Date(),
         executedBy: profile.uid,
+        timeTakenSeconds: taken,
       })
       await incrementRoundCounts(roundId, { failed: 1, pending: -1 })
       setDrawerOpen(false)
-      advance()
+      setFinalElapsed(taken)
+      setPhase('done')
     } catch (err) {
       toast.error(err.message)
     }
@@ -205,24 +235,56 @@ export default function ExecutionPage() {
 
           {current && (
             <div className="border-t border-outline-variant/50 px-8 py-4 shrink-0">
-              <div className="max-w-3xl mx-auto flex gap-4">
-                <button
-                  onClick={markPass}
-                  className="btn flex-1 h-14 text-[16px] font-semibold bg-secondary-container hover:brightness-110 text-white rounded"
-                >
-                  <CheckCircle2 size={20} /> PASS
-                </button>
-                <button
-                  onClick={startFail}
-                  className="btn flex-1 h-14 text-[16px] font-semibold bg-danger-container hover:brightness-110 text-white rounded"
-                >
-                  <XCircle size={20} /> FAIL
-                </button>
+              <div className="max-w-3xl mx-auto">
+                {phase === 'idle' && (
+                  <button
+                    onClick={handleStart}
+                    className="btn w-full h-14 text-[16px] font-semibold bg-primary-container hover:brightness-110 text-white rounded"
+                  >
+                    <Play size={20} /> START TEST
+                  </button>
+                )}
+
+                {phase === 'running' && (
+                  <div className="flex gap-4">
+                    <button
+                      onClick={markPass}
+                      className="btn flex-1 h-14 text-[16px] font-semibold bg-secondary-container hover:brightness-110 text-white rounded"
+                    >
+                      <CheckCircle2 size={20} /> PASS
+                    </button>
+                    <button
+                      onClick={startFail}
+                      className="btn flex-1 h-14 text-[16px] font-semibold bg-danger-container hover:brightness-110 text-white rounded"
+                    >
+                      <XCircle size={20} /> FAIL
+                    </button>
+                  </div>
+                )}
+
+                {phase === 'done' && (
+                  <div className="flex gap-4 items-stretch">
+                    <div className="flex-1 h-14 px-4 rounded border border-outline-variant/60 bg-surface-low flex items-center gap-3">
+                      <Clock size={16} className="text-ink-muted" />
+                      <span className="text-body-md text-ink-muted">Time taken</span>
+                      <span className="ml-auto font-mono text-h3 text-ink">{fmtTime(finalElapsed)}</span>
+                    </div>
+                    <button
+                      onClick={advance}
+                      className="btn h-14 px-6 text-[15px] font-semibold bg-primary-container hover:brightness-110 text-white rounded"
+                    >
+                      Next test <ChevronRight size={18} />
+                    </button>
+                  </div>
+                )}
               </div>
+
               <div className="max-w-3xl mx-auto flex items-center gap-6 mt-3 text-[12px] text-ink-dim">
-                <span className="flex items-center gap-1.5">
-                  <Clock size={12} /> Elapsed: <span className="font-mono text-ink-muted">{fmtTime(elapsed)}</span>
-                </span>
+                {phase === 'running' && (
+                  <span className="flex items-center gap-1.5">
+                    <Clock size={12} /> Elapsed: <span className="font-mono text-ink-muted">{fmtTime(elapsed)}</span>
+                  </span>
+                )}
                 <span className="flex items-center gap-1.5">
                   <UserIcon size={12} /> Tester: <span className="text-ink-muted">{profile?.name}</span>
                 </span>
