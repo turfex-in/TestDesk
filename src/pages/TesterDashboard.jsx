@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { PlayCircle, CheckCircle2, XCircle, Clock, RefreshCw, AlertTriangle, ChevronRight, History } from 'lucide-react'
+import { PlayCircle, CheckCircle2, XCircle, Clock, RefreshCw, AlertTriangle, ChevronRight, History, Lock } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useProject } from '../context/ProjectContext.jsx'
 import { watchRounds, listTestCasesForRound } from '../services/firebaseService'
@@ -140,20 +141,20 @@ export default function TesterDashboard() {
         </div>
       )}
 
-      <section>
-        <h2 className="text-h3 mb-3">Active rounds</h2>
-        <div className="space-y-3">
-          {rounds.map((r) => {
-            const cases = roundCases[r.id] || []
-            const todayCount = cases.filter((c) => c.batchDate === today).length
-            const first = cases
-              .filter((c) => c.batchDate === today && c.status === TESTCASE_STATUS.PENDING)
-              .sort((a, b) => (a.isRetest === b.isRetest ? 0 : a.isRetest ? -1 : 1))[0]
-            return (
+      <section className="space-y-6">
+        <h2 className="text-h3">Active rounds</h2>
+        {rounds.map((r) => {
+          const cases = roundCases[r.id] || []
+          const days = groupByDay(cases, today)
+          const todayCount = cases.filter((c) => c.batchDate === today).length
+          const first = cases
+            .filter((c) => c.batchDate === today && c.status === TESTCASE_STATUS.PENDING)
+            .sort((a, b) => (a.isRetest === b.isRetest ? 0 : a.isRetest ? -1 : 1))[0]
+          return (
+            <div key={r.id} className="card overflow-hidden">
               <Link
-                key={r.id}
                 to={`/rounds/${r.id}/execute`}
-                className="card card-hover flex items-center gap-4 p-5"
+                className="flex items-center gap-4 p-5 hover:bg-surface-high/30 transition-colors"
               >
                 <div className="w-11 h-11 rounded bg-primary-container/20 flex items-center justify-center text-primary">
                   <PlayCircle size={22} />
@@ -168,10 +169,129 @@ export default function TesterDashboard() {
                 <Badge tone="primary">Round {r.roundNumber}</Badge>
                 <ChevronRight className="text-ink-dim" size={18} />
               </Link>
-            )
-          })}
-        </div>
+              {days.length > 0 && (
+                <div className="border-t border-outline-variant/40">
+                  <div className="px-5 py-3 flex items-baseline justify-between">
+                    <div className="label-sm">Schedule</div>
+                    <div className="text-[11px] text-ink-dim">
+                      Only today is unlocked. Future days open on their date.
+                    </div>
+                  </div>
+                  <div className="px-5 pb-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                    {days.map((d) => (
+                      <DayCell key={d.date} day={d} roundId={r.id} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
       </section>
+    </div>
+  )
+}
+
+// Build a sorted-by-date list of { date, dayNumber, total, passed, failed,
+// pending, when } for one round's cases. `when` is 'past' | 'today' | 'future'.
+function groupByDay(cases, todayStr) {
+  const map = new Map()
+  for (const c of cases) {
+    if (!c.batchDate) continue
+    if (!map.has(c.batchDate)) {
+      map.set(c.batchDate, {
+        date: c.batchDate,
+        dayNumber: c.batchDay || 0,
+        total: 0,
+        passed: 0,
+        failed: 0,
+        pending: 0,
+      })
+    }
+    const d = map.get(c.batchDate)
+    d.total++
+    if (c.status === TESTCASE_STATUS.PASSED) d.passed++
+    else if (c.status === TESTCASE_STATUS.FAILED) d.failed++
+    else d.pending++
+    // batchDay drifts when carry-over rewrites batchDate; keep the smallest
+    // observed batchDay for the date so labels stay stable.
+    if (c.batchDay && (!d.dayNumber || c.batchDay < d.dayNumber)) {
+      d.dayNumber = c.batchDay
+    }
+  }
+  const out = [...map.values()].sort((a, b) => a.date.localeCompare(b.date))
+  return out.map((d, i) => ({
+    ...d,
+    dayNumber: d.dayNumber || i + 1,
+    when: d.date < todayStr ? 'past' : d.date === todayStr ? 'today' : 'future',
+  }))
+}
+
+function DayCell({ day, roundId }) {
+  const isToday = day.when === 'today'
+  const isPast = day.when === 'past'
+  const isFuture = day.when === 'future'
+  const done = day.passed + day.failed
+  const progress = pct(done, day.total)
+
+  const inner = (
+    <>
+      <div className="flex items-baseline justify-between mb-1.5">
+        <div className="label-sm">Day {day.dayNumber}</div>
+        <div className="font-mono text-[11px] text-ink-dim">
+          {format(parseISO(day.date), 'MMM d')}
+        </div>
+      </div>
+      <div className="flex items-baseline gap-1.5">
+        <div className="text-h3 font-bold">{day.total}</div>
+        <div className="text-[11px] text-ink-dim">cases</div>
+      </div>
+      {isPast && (
+        <div className="mt-2 flex items-center gap-2 text-[11px]">
+          <span className="text-secondary">{day.passed} passed</span>
+          {day.failed > 0 && <span className="text-danger">{day.failed} failed</span>}
+          {day.pending > 0 && <span className="text-tertiary">{day.pending} skipped</span>}
+        </div>
+      )}
+      {isToday && (
+        <>
+          <div className="mt-2 h-1 rounded-full bg-surface-low overflow-hidden">
+            <div className="h-full bg-primary" style={{ width: `${progress}%` }} />
+          </div>
+          <div className="mt-1.5 flex items-center gap-1 text-[11px] text-primary font-semibold">
+            <PlayCircle size={11} /> {done}/{day.total} · open
+          </div>
+        </>
+      )}
+      {isFuture && (
+        <div className="mt-2 flex items-center gap-1 text-[11px] text-ink-dim">
+          <Lock size={11} /> Locked
+        </div>
+      )}
+    </>
+  )
+
+  const baseClass = 'rounded-md border p-3 transition-colors block'
+  if (isToday) {
+    return (
+      <Link
+        to={`/rounds/${roundId}/execute`}
+        className={[baseClass, 'border-primary bg-primary-container/15 hover:bg-primary-container/25'].join(' ')}
+      >
+        {inner}
+      </Link>
+    )
+  }
+  return (
+    <div
+      className={[
+        baseClass,
+        isPast
+          ? 'border-outline-variant/40 bg-surface-low/40'
+          : 'border-outline-variant/40 bg-surface-low/20 opacity-60',
+      ].join(' ')}
+    >
+      {inner}
     </div>
   )
 }
