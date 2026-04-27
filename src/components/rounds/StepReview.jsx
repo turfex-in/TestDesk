@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Loader2, ChevronDown, ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { splitIntoBatches, distributionSummary } from '../../services/batchSplitter'
+import { splitAcrossTesters, summarizeSplit } from '../../services/testerSplitter'
 import { listTesters, createRound, bulkInsertTestCases, bulkInsertBatches } from '../../services/firebaseService'
 import {
   PRIORITY_WEIGHT,
@@ -25,7 +26,8 @@ export default function StepReview({ testCases, onBack }) {
   const [form, setForm] = useState({
     name: '',
     module: '',
-    assignedTo: '',
+    assignees: [],
+    splitStrategy: 'module',
     deadline: '',
     dailyMinutes: DEFAULT_DAILY_MINUTES,
     dailyCapacity: DEFAULT_DAILY_CAPACITY,
@@ -56,94 +58,128 @@ export default function StepReview({ testCases, onBack }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [testCases.length])
 
+  // Per-tester slice of cases. With 0 or 1 testers selected, the whole CSV
+  // goes to a single (possibly placeholder) bucket so the daily preview stays
+  // populated while the user is still picking testers.
+  const testerBuckets = useMemo(() => {
+    const n = Math.max(1, form.assignees.length)
+    return splitAcrossTesters(testCases, n, form.splitStrategy)
+  }, [testCases, form.assignees.length, form.splitStrategy])
+
+  const splitSummary = useMemo(() => summarizeSplit(testerBuckets), [testerBuckets])
+
+  // Daily-batch preview is built on tester 0's slice — one tester's view of
+  // their daily plate. Each tester's actual round will use their own slice.
+  const previewSlice = testerBuckets[0] || testCases
   const batches = useMemo(
     () =>
       distributionSummary(
-        splitIntoBatches(testCases, {
+        splitIntoBatches(previewSlice, {
           startDate: parseISO(form.startDate),
           dailyMinutes: Number(form.dailyMinutes) || DEFAULT_DAILY_MINUTES,
           dailyCapacity: Number(form.dailyCapacity) || DEFAULT_DAILY_CAPACITY,
           orderBy: form.orderBy,
         })
       ),
-    [testCases, form.dailyMinutes, form.dailyCapacity, form.startDate, form.orderBy]
+    [previewSlice, form.dailyMinutes, form.dailyCapacity, form.startDate, form.orderBy]
   )
 
   async function handleCreate() {
     if (!selected?.id) return toast.error('Select a project first.')
     if (!form.name.trim()) return toast.error('Round name is required.')
-    if (!form.assignedTo) return toast.error('Assign a tester.')
+    if (form.assignees.length === 0) return toast.error('Assign at least one tester.')
 
     setSaving(true)
     try {
-      const roundId = await createRound({
-        projectId: selected.id,
-        roundNumber: 1,
-        name: form.name.trim(),
-        module: form.module.trim() || 'General',
-        assignedTo: form.assignedTo,
-        status: ROUND_STATUS.ACTIVE,
-        totalCases: testCases.length,
-        passed: 0,
-        failed: 0,
-        pending: testCases.length,
-        startDate: parseISO(form.startDate),
-        deadline: form.deadline ? parseISO(form.deadline) : null,
-        createdBy: profile.uid,
-      })
-
-      const tcDocs = []
-      for (const b of batches) {
-        b.cases.forEach((tc, orderInDay) => {
-          tcDocs.push({
-            roundId,
-            projectId: selected.id,
-            testId: tc.testId,
-            title: tc.title,
-            module: tc.module,
-            subModule: tc.subModule || '',
-            preConditions: tc.preConditions || '',
-            originalDescription: tc.description || '',
-            expandedSteps: tc.steps || [],
-            expectedResult: tc.expectedResult || '',
-            priority: tc.priority,
-            type: tc.type || 'Positive',
-            effort: tc.effort || '',
-            remarks: tc.remarks || '',
-            weight: PRIORITY_WEIGHT[tc.priority] || 1,
-            estimatedMinutes: tc.estimatedMinutes || 5,
-            status: TESTCASE_STATUS.PENDING,
-            batchDay: b.dayNumber,
-            batchDate: b.date,
-            batchOrder: orderInDay,
-            isCarryOver: false,
-            isRetest: false,
-            executedAt: null,
-            executedBy: null,
-            roundResults: { round1: null, round2: null, round3: null },
+      const multi = form.assignees.length > 1
+      const roundIds = []
+      for (let i = 0; i < form.assignees.length; i++) {
+        const uid = form.assignees[i]
+        const tester = testers.find((t) => t.uid === uid)
+        const slice = testerBuckets[i] || []
+        const perTesterBatches = distributionSummary(
+          splitIntoBatches(slice, {
+            startDate: parseISO(form.startDate),
+            dailyMinutes: Number(form.dailyMinutes) || DEFAULT_DAILY_MINUTES,
+            dailyCapacity: Number(form.dailyCapacity) || DEFAULT_DAILY_CAPACITY,
+            orderBy: form.orderBy,
           })
-        })
-      }
-      await bulkInsertTestCases(tcDocs)
-      await bulkInsertBatches(
-        batches.map((b) => ({
-          roundId,
-          dayNumber: b.dayNumber,
-          date: b.date,
-          totalCases: b.cases.length,
-          newCases: b.cases.length,
-          carryOvers: 0,
-          retests: 0,
-          completed: 0,
+        )
+
+        const roundName = multi
+          ? `${form.name.trim()} · ${tester?.name || 'Tester'}`
+          : form.name.trim()
+
+        const roundId = await createRound({
+          projectId: selected.id,
+          roundNumber: 1,
+          name: roundName,
+          module: form.module.trim() || 'General',
+          assignedTo: uid,
+          status: ROUND_STATUS.ACTIVE,
+          totalCases: slice.length,
           passed: 0,
           failed: 0,
-          status: b.dayNumber === 1 ? 'active' : 'upcoming',
-          assignedTo: form.assignedTo,
-        }))
-      )
+          pending: slice.length,
+          startDate: parseISO(form.startDate),
+          deadline: form.deadline ? parseISO(form.deadline) : null,
+          createdBy: profile.uid,
+        })
+        roundIds.push(roundId)
 
-      toast.success('Round created')
-      navigate(`/rounds/${roundId}`)
+        const tcDocs = []
+        for (const b of perTesterBatches) {
+          b.cases.forEach((tc, orderInDay) => {
+            tcDocs.push({
+              roundId,
+              projectId: selected.id,
+              testId: tc.testId,
+              title: tc.title,
+              module: tc.module,
+              subModule: tc.subModule || '',
+              preConditions: tc.preConditions || '',
+              originalDescription: tc.description || '',
+              expandedSteps: tc.steps || [],
+              expectedResult: tc.expectedResult || '',
+              priority: tc.priority,
+              type: tc.type || 'Positive',
+              effort: tc.effort || '',
+              remarks: tc.remarks || '',
+              weight: PRIORITY_WEIGHT[tc.priority] || 1,
+              estimatedMinutes: tc.estimatedMinutes || 5,
+              status: TESTCASE_STATUS.PENDING,
+              batchDay: b.dayNumber,
+              batchDate: b.date,
+              batchOrder: orderInDay,
+              isCarryOver: false,
+              isRetest: false,
+              executedAt: null,
+              executedBy: null,
+              roundResults: { round1: null, round2: null, round3: null },
+            })
+          })
+        }
+        await bulkInsertTestCases(tcDocs)
+        await bulkInsertBatches(
+          perTesterBatches.map((b) => ({
+            roundId,
+            dayNumber: b.dayNumber,
+            date: b.date,
+            totalCases: b.cases.length,
+            newCases: b.cases.length,
+            carryOvers: 0,
+            retests: 0,
+            completed: 0,
+            passed: 0,
+            failed: 0,
+            status: b.dayNumber === 1 ? 'active' : 'upcoming',
+            assignedTo: uid,
+          }))
+        )
+      }
+
+      toast.success(multi ? `${roundIds.length} rounds created` : 'Round created')
+      navigate(multi ? '/rounds' : `/rounds/${roundIds[0]}`)
     } catch (err) {
       toast.error(err.message || 'Could not create round')
     } finally {
@@ -170,12 +206,27 @@ export default function StepReview({ testCases, onBack }) {
     [form.startDate, form.deadline]
   )
   const deadlineMissed = form.deadline && batches.length > deadlineWindowDays
+
+  // Auto-fit sizes daily caps against the heaviest tester's slice — that
+  // tester is the long pole, so fitting them by the deadline fits everyone.
+  const heaviestBucket = useMemo(() => {
+    let max = { cases: 0, minutes: 0 }
+    for (let i = 0; i < testerBuckets.length; i++) {
+      const cases = testerBuckets[i].length
+      const minutes = splitSummary[i]?.minutes || 0
+      if (minutes > max.minutes) max = { cases, minutes }
+    }
+    return max
+  }, [testerBuckets, splitSummary])
+
   const setDeadlineAutoFit = (deadline) => {
-    setForm((f) => fitToDeadline({ ...f, deadline }, testCases))
+    setForm((f) => fitToDeadline({ ...f, deadline }, heaviestBucket))
   }
   const setStartDateAutoFit = (startDate) => {
     setForm((f) =>
-      f.deadline ? fitToDeadline({ ...f, startDate }, testCases) : { ...f, startDate }
+      f.deadline
+        ? fitToDeadline({ ...f, startDate }, heaviestBucket)
+        : { ...f, startDate }
     )
   }
 
@@ -224,32 +275,58 @@ export default function StepReview({ testCases, onBack }) {
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="label-sm block mb-1.5">Module focus</label>
-              <input
-                className="input"
-                placeholder="e.g. Authentication"
-                value={form.module}
-                onChange={(e) => setForm({ ...form, module: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="label-sm block mb-1.5">Assigned tester</label>
-              <select
-                className="input"
-                value={form.assignedTo}
-                onChange={(e) => setForm({ ...form, assignedTo: e.target.value })}
-              >
-                <option value="">— select tester —</option>
-                {testers.map((t) => (
-                  <option key={t.uid} value={t.uid}>
-                    {t.name} — {t.email}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div>
+            <label className="label-sm block mb-1.5">Module focus</label>
+            <input
+              className="input"
+              placeholder="e.g. Authentication"
+              value={form.module}
+              onChange={(e) => setForm({ ...form, module: e.target.value })}
+            />
           </div>
+          <div>
+            <label className="label-sm block mb-1.5">
+              Assigned testers
+              {form.assignees.length > 1 && (
+                <span className="ml-2 text-ink-dim font-normal normal-case tracking-normal">
+                  ({form.assignees.length} testers — work will be split)
+                </span>
+              )}
+            </label>
+            <TesterMultiSelect
+              testers={testers}
+              selected={form.assignees}
+              onChange={(assignees) => setForm({ ...form, assignees })}
+            />
+          </div>
+          {form.assignees.length > 1 && (
+            <div>
+              <label className="label-sm block mb-2">Split strategy</label>
+              <div className="grid grid-cols-3 gap-2">
+                <OrderOption
+                  value="module"
+                  current={form.splitStrategy}
+                  onSelect={() => setForm({ ...form, splitStrategy: 'module' })}
+                  title="Whole modules"
+                  desc="Each tester owns coherent modules. Best for flow."
+                />
+                <OrderOption
+                  value="contiguous"
+                  current={form.splitStrategy}
+                  onSelect={() => setForm({ ...form, splitStrategy: 'contiguous' })}
+                  title="Contiguous chunks"
+                  desc="Cuts the deck into N consecutive slices balanced by minutes."
+                />
+                <OrderOption
+                  value="round-robin"
+                  current={form.splitStrategy}
+                  onSelect={() => setForm({ ...form, splitStrategy: 'round-robin' })}
+                  title="Round-robin"
+                  desc="Strict alternation. Simplest, but breaks app flow."
+                />
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-4 gap-4">
             <div>
               <label className="label-sm block mb-1.5">Start date</label>
@@ -374,6 +451,50 @@ export default function StepReview({ testCases, onBack }) {
           </div>
         </div>
       </div>
+
+      {form.assignees.length > 1 && (
+        <div className="card overflow-hidden">
+          <div className="p-5 border-b border-outline-variant/40">
+            <div className="label-sm">Work split across testers</div>
+            <div className="text-body-md text-ink-muted mt-1">
+              {form.splitStrategy === 'module' && 'Whole modules assigned to whichever tester has the lighter load.'}
+              {form.splitStrategy === 'contiguous' && 'Consecutive slices of the CSV, balanced by estimated minutes.'}
+              {form.splitStrategy === 'round-robin' && 'Strict alternation — TC-001 to tester 1, TC-002 to tester 2, etc.'}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-0 divide-x divide-outline-variant/30">
+            {form.assignees.map((uid, i) => {
+              const tester = testers.find((t) => t.uid === uid)
+              const s = splitSummary[i] || { caseCount: 0, minutes: 0, modules: [] }
+              return (
+                <div key={uid} className="p-4">
+                  <div className="font-semibold mb-1">{tester?.name || 'Tester'}</div>
+                  <div className="text-[11px] text-ink-dim mb-3">{tester?.email}</div>
+                  <div className="flex items-baseline gap-2 mb-1">
+                    <div className="text-h3 font-bold">{s.caseCount}</div>
+                    <div className="text-body-md text-ink-dim">cases</div>
+                  </div>
+                  <div className="font-mono text-[11px] text-primary mb-3">
+                    ~{formatMinutes(s.minutes)}
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {s.modules.slice(0, 6).map((m) => (
+                      <Badge key={m.name} tone="neutral" size="sm" uppercase={false}>
+                        {m.name} · {m.count}
+                      </Badge>
+                    ))}
+                    {s.modules.length > 6 && (
+                      <span className="text-[11px] text-ink-dim self-center">
+                        +{s.modules.length - 6} more
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Daily batch split */}
       <div className="card overflow-hidden">
@@ -512,17 +633,51 @@ function countBusinessDays(startISO, endISO) {
 }
 
 // Re-tune dailyMinutes / dailyCapacity so the round fits the start→deadline
-// working-day window. Both inputs are clamped to their UI min/max — if the
-// window is too tight, the splitter will still produce more days than fit
-// (caller renders a warning via `batches.length > deadlineWindowDays`).
-function fitToDeadline(form, testCases) {
+// working-day window. Sized against the heaviest tester's slice (the long
+// pole). Both inputs are clamped to their UI min/max — if the window is
+// too tight, the splitter will still produce more days than fit and the
+// caller renders a warning via `batches.length > deadlineWindowDays`.
+function fitToDeadline(form, heaviest) {
   const days = countBusinessDays(form.startDate, form.deadline)
   if (days <= 0) return form
-  const totalMin = testCases.reduce((s, t) => s + (t.estimatedMinutes || 0), 0)
-  const totalCases = testCases.length
+  const totalMin = heaviest.minutes || 0
+  const totalCases = heaviest.cases || 0
+  if (totalMin === 0 || totalCases === 0) return form
   const minutesPerDay = Math.max(30, Math.min(480, Math.ceil(totalMin / days)))
   const casesPerDay = Math.max(5, Math.min(120, Math.ceil(totalCases / days)))
   return { ...form, dailyMinutes: minutesPerDay, dailyCapacity: casesPerDay }
+}
+
+function TesterMultiSelect({ testers, selected, onChange }) {
+  const toggle = (uid) => {
+    onChange(selected.includes(uid) ? selected.filter((x) => x !== uid) : [...selected, uid])
+  }
+  if (!testers.length) {
+    return <div className="text-body-md text-ink-dim italic">No testers found.</div>
+  }
+  return (
+    <div className="flex flex-wrap gap-2">
+      {testers.map((t) => {
+        const active = selected.includes(t.uid)
+        return (
+          <button
+            key={t.uid}
+            type="button"
+            onClick={() => toggle(t.uid)}
+            className={[
+              'text-left rounded-md border px-3 py-2 transition-colors text-body-md',
+              active
+                ? 'border-primary bg-primary-container/20 text-primary'
+                : 'border-outline-variant/60 text-ink hover:border-primary/50 hover:bg-surface-high/40',
+            ].join(' ')}
+          >
+            <span className="font-semibold">{t.name}</span>
+            <span className="ml-2 text-[12px] text-ink-dim normal-case tracking-normal">{t.email}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
 }
 
 function formatMinutes(mins) {
