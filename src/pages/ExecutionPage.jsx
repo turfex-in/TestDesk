@@ -96,8 +96,9 @@ export default function ExecutionPage() {
   // Reset phase + timer whenever the active test case changes.
   // (startedAt ref is overwritten on Start, so it doesn't need a reset here.)
   const [prevTestId, setPrevTestId] = useState(null)
-  if (current?.id !== prevTestId) {
-    setPrevTestId(current?.id || null)
+  const newTestId = current?.id ?? null
+  if (newTestId !== prevTestId) {
+    setPrevTestId(newTestId)
     setPhase('idle')
     setElapsed(0)
     setFinalElapsed(0)
