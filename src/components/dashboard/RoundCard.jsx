@@ -1,7 +1,14 @@
 import { Link } from 'react-router-dom'
 import ProgressRing from '../common/ProgressRing.jsx'
 import Avatar from '../common/Avatar.jsx'
+import Badge from '../common/Badge.jsx'
 import { fmtDate, pct } from '../../utils/helpers'
+
+const STATUS_TONE = {
+  active: 'primary',
+  completed: 'secondary',
+  paused: 'neutral',
+}
 
 export default function RoundCard({ round, tester }) {
   const total = round.totalCases || 0
@@ -15,6 +22,13 @@ export default function RoundCard({ round, tester }) {
       to={`/rounds/${round.id}`}
       className="card card-hover p-5 block"
     >
+      {round.status && (
+        <div className="mb-3">
+          <Badge tone={STATUS_TONE[round.status] || 'neutral'} size="sm">
+            {round.status}
+          </Badge>
+        </div>
+      )}
       <div className="flex items-start justify-between gap-4 mb-4">
         <div className="min-w-0">
           <h3 className="text-h3 truncate">{round.name}</h3>

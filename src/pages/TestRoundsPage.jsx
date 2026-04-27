@@ -7,7 +7,6 @@ import { watchRounds, listUsers } from '../services/firebaseService'
 import { ROLES, ROUND_STATUS } from '../utils/constants'
 import RoundCard from '../components/dashboard/RoundCard.jsx'
 import EmptyState from '../components/common/EmptyState.jsx'
-import Badge from '../components/common/Badge.jsx'
 
 const FILTERS = [
   { key: 'all', label: 'All' },
@@ -108,14 +107,7 @@ export default function TestRoundsPage() {
       ) : (
         <div className="grid grid-cols-2 gap-5">
           {filtered.map((r) => (
-            <div key={r.id} className="relative">
-              <RoundCard round={r} tester={testerMap[r.assignedTo]} />
-              <div className="absolute top-4 right-4">
-                <Badge tone={r.status === 'active' ? 'primary' : r.status === 'completed' ? 'secondary' : 'neutral'}>
-                  {r.status}
-                </Badge>
-              </div>
-            </div>
+            <RoundCard key={r.id} round={r} tester={testerMap[r.assignedTo]} />
           ))}
         </div>
       )}
