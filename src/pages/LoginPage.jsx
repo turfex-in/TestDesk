@@ -40,9 +40,33 @@ export default function LoginPage() {
         await login(form.email, form.password)
       }
     } catch (err) {
-      toast.error(err.message || 'Something went wrong.')
+      toast.error(friendlyAuthError(err))
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  function friendlyAuthError(err) {
+    const code = err?.code || ''
+    switch (code) {
+      case 'auth/invalid-credential':
+      case 'auth/wrong-password':
+      case 'auth/user-not-found':
+        return 'Wrong email or password. Please try again.'
+      case 'auth/invalid-email':
+        return 'That email address looks invalid.'
+      case 'auth/user-disabled':
+        return 'This account has been disabled. Contact your admin.'
+      case 'auth/too-many-requests':
+        return 'Too many failed attempts. Try again in a few minutes.'
+      case 'auth/network-request-failed':
+        return 'Network error. Check your connection and try again.'
+      case 'auth/email-already-in-use':
+        return 'An account with this email already exists.'
+      case 'auth/weak-password':
+        return 'Password is too weak. Use at least 6 characters.'
+      default:
+        return err?.message?.replace(/^Firebase:\s*/, '') || 'Something went wrong.'
     }
   }
 
