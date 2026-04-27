@@ -33,6 +33,7 @@ export default function StepReview({ testCases, onBack }) {
     dailyCapacity: DEFAULT_DAILY_CAPACITY,
     startDate: format(new Date(), 'yyyy-MM-dd'),
     orderBy: 'csv',
+    skipWeekends: true,
   })
   const [saving, setSaving] = useState(false)
   const [previewIdx, setPreviewIdx] = useState(null)
@@ -79,9 +80,17 @@ export default function StepReview({ testCases, onBack }) {
           dailyMinutes: Number(form.dailyMinutes) || DEFAULT_DAILY_MINUTES,
           dailyCapacity: Number(form.dailyCapacity) || DEFAULT_DAILY_CAPACITY,
           orderBy: form.orderBy,
+          skipWeekends: form.skipWeekends,
         })
       ),
-    [previewSlice, form.dailyMinutes, form.dailyCapacity, form.startDate, form.orderBy]
+    [
+      previewSlice,
+      form.dailyMinutes,
+      form.dailyCapacity,
+      form.startDate,
+      form.orderBy,
+      form.skipWeekends,
+    ]
   )
 
   async function handleCreate() {
@@ -103,6 +112,7 @@ export default function StepReview({ testCases, onBack }) {
             dailyMinutes: Number(form.dailyMinutes) || DEFAULT_DAILY_MINUTES,
             dailyCapacity: Number(form.dailyCapacity) || DEFAULT_DAILY_CAPACITY,
             orderBy: form.orderBy,
+            skipWeekends: form.skipWeekends,
           })
         )
 
@@ -202,8 +212,11 @@ export default function StepReview({ testCases, onBack }) {
     : 0
 
   const deadlineWindowDays = useMemo(
-    () => (form.deadline ? countBusinessDays(form.startDate, form.deadline) : 0),
-    [form.startDate, form.deadline]
+    () =>
+      form.deadline
+        ? countBusinessDays(form.startDate, form.deadline, form.skipWeekends)
+        : 0,
+    [form.startDate, form.deadline, form.skipWeekends]
   )
   const deadlineMissed = form.deadline && batches.length > deadlineWindowDays
 
@@ -227,6 +240,13 @@ export default function StepReview({ testCases, onBack }) {
       f.deadline
         ? fitToDeadline({ ...f, startDate }, heaviestBucket)
         : { ...f, startDate }
+    )
+  }
+  const setSkipWeekendsAutoFit = (skipWeekends) => {
+    setForm((f) =>
+      f.deadline
+        ? fitToDeadline({ ...f, skipWeekends }, heaviestBucket)
+        : { ...f, skipWeekends }
     )
   }
 
@@ -349,8 +369,8 @@ export default function StepReview({ testCases, onBack }) {
               {form.deadline && deadlineWindowDays > 0 && (
                 <div className={['text-[11px] mt-1', deadlineMissed ? 'text-danger' : 'text-ink-dim'].join(' ')}>
                   {deadlineMissed
-                    ? `Won't fit: needs ${batches.length} working days, only ${deadlineWindowDays} available`
-                    : `Auto-fitted to ${deadlineWindowDays} working days`}
+                    ? `Won't fit: needs ${batches.length} ${form.skipWeekends ? 'working' : 'calendar'} days, only ${deadlineWindowDays} available`
+                    : `Auto-fitted to ${deadlineWindowDays} ${form.skipWeekends ? 'working' : 'calendar'} days`}
                 </div>
               )}
             </div>
@@ -384,6 +404,23 @@ export default function StepReview({ testCases, onBack }) {
               />
             </div>
           </div>
+
+          <label className="flex items-start gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              className="mt-0.5 w-4 h-4 accent-primary cursor-pointer"
+              checked={form.skipWeekends}
+              onChange={(e) => setSkipWeekendsAutoFit(e.target.checked)}
+            />
+            <div>
+              <div className="text-body-md font-medium">Skip weekends</div>
+              <div className="text-[12px] text-ink-dim leading-snug">
+                {form.skipWeekends
+                  ? 'Saturdays and Sundays will be skipped — testing only happens on weekdays.'
+                  : 'Testing runs every day including weekends. Use this only if your team works through the weekend.'}
+              </div>
+            </div>
+          </label>
 
           <div>
             <label className="label-sm block mb-2">Test execution order</label>
@@ -501,7 +538,8 @@ export default function StepReview({ testCases, onBack }) {
         <div className="p-5 border-b border-outline-variant/40">
           <div className="label-sm">Daily batch split</div>
           <div className="text-body-md text-ink-muted mt-1">
-            Weighted by priority (Critical=3, High=2, Medium=1.5, Low=1). Weekends skipped.
+            Weighted by priority (Critical=3, High=2, Medium=1.5, Low=1).{' '}
+            {form.skipWeekends ? 'Weekends skipped.' : 'Weekends included.'}
           </div>
         </div>
         <div className="grid grid-cols-4 gap-0 divide-x divide-outline-variant/30">
@@ -618,7 +656,7 @@ function Row({ label, value }) {
   )
 }
 
-function countBusinessDays(startISO, endISO) {
+function countBusinessDays(startISO, endISO, skipWeekends = true) {
   if (!startISO || !endISO) return 0
   const start = parseISO(startISO)
   const end = parseISO(endISO)
@@ -626,7 +664,7 @@ function countBusinessDays(startISO, endISO) {
   let n = 0
   const cursor = new Date(start)
   while (cursor <= end) {
-    if (!isWeekend(cursor)) n++
+    if (!skipWeekends || !isWeekend(cursor)) n++
     cursor.setDate(cursor.getDate() + 1)
   }
   return n
@@ -638,7 +676,7 @@ function countBusinessDays(startISO, endISO) {
 // too tight, the splitter will still produce more days than fit and the
 // caller renders a warning via `batches.length > deadlineWindowDays`.
 function fitToDeadline(form, heaviest) {
-  const days = countBusinessDays(form.startDate, form.deadline)
+  const days = countBusinessDays(form.startDate, form.deadline, form.skipWeekends)
   if (days <= 0) return form
   const totalMin = heaviest.minutes || 0
   const totalCases = heaviest.cases || 0
