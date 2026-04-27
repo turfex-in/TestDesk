@@ -14,7 +14,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useProject } from '../../context/ProjectContext.jsx'
 import { useNavigate } from 'react-router-dom'
 import Badge from '../common/Badge.jsx'
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, isWeekend } from 'date-fns'
 
 export default function StepReview({ testCases, onBack }) {
   const { profile } = useAuth()
@@ -165,6 +165,20 @@ export default function StepReview({ testCases, onBack }) {
         .reduce((acc, b) => acc + b.cases.length, 0)
     : 0
 
+  const deadlineWindowDays = useMemo(
+    () => (form.deadline ? countBusinessDays(form.startDate, form.deadline) : 0),
+    [form.startDate, form.deadline]
+  )
+  const deadlineMissed = form.deadline && batches.length > deadlineWindowDays
+  const setDeadlineAutoFit = (deadline) => {
+    setForm((f) => fitToDeadline({ ...f, deadline }, testCases))
+  }
+  const setStartDateAutoFit = (startDate) => {
+    setForm((f) =>
+      f.deadline ? fitToDeadline({ ...f, startDate }, testCases) : { ...f, startDate }
+    )
+  }
+
   return (
     <div className="space-y-5">
       {(missingSteps > 0 || missingExpected > 0) && (
@@ -243,7 +257,7 @@ export default function StepReview({ testCases, onBack }) {
                 type="date"
                 className="input"
                 value={form.startDate}
-                onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                onChange={(e) => setStartDateAutoFit(e.target.value)}
               />
             </div>
             <div>
@@ -251,9 +265,17 @@ export default function StepReview({ testCases, onBack }) {
               <input
                 type="date"
                 className="input"
+                min={form.startDate}
                 value={form.deadline}
-                onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+                onChange={(e) => setDeadlineAutoFit(e.target.value)}
               />
+              {form.deadline && deadlineWindowDays > 0 && (
+                <div className={['text-[11px] mt-1', deadlineMissed ? 'text-danger' : 'text-ink-dim'].join(' ')}>
+                  {deadlineMissed
+                    ? `Won't fit: needs ${batches.length} working days, only ${deadlineWindowDays} available`
+                    : `Auto-fitted to ${deadlineWindowDays} working days`}
+                </div>
+              )}
             </div>
             <div>
               <label className="label-sm block mb-1.5">
@@ -473,6 +495,34 @@ function Row({ label, value }) {
       <span className="font-semibold">{value}</span>
     </div>
   )
+}
+
+function countBusinessDays(startISO, endISO) {
+  if (!startISO || !endISO) return 0
+  const start = parseISO(startISO)
+  const end = parseISO(endISO)
+  if (end < start) return 0
+  let n = 0
+  const cursor = new Date(start)
+  while (cursor <= end) {
+    if (!isWeekend(cursor)) n++
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return n
+}
+
+// Re-tune dailyMinutes / dailyCapacity so the round fits the start→deadline
+// working-day window. Both inputs are clamped to their UI min/max — if the
+// window is too tight, the splitter will still produce more days than fit
+// (caller renders a warning via `batches.length > deadlineWindowDays`).
+function fitToDeadline(form, testCases) {
+  const days = countBusinessDays(form.startDate, form.deadline)
+  if (days <= 0) return form
+  const totalMin = testCases.reduce((s, t) => s + (t.estimatedMinutes || 0), 0)
+  const totalCases = testCases.length
+  const minutesPerDay = Math.max(30, Math.min(480, Math.ceil(totalMin / days)))
+  const casesPerDay = Math.max(5, Math.min(120, Math.ceil(totalCases / days)))
+  return { ...form, dailyMinutes: minutesPerDay, dailyCapacity: casesPerDay }
 }
 
 function formatMinutes(mins) {
