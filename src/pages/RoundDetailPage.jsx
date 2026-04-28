@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Download, Play, PlayCircle, Trash2, Loader2, AlertTriangle } from 'lucide-react'
 import {
   getRound,
@@ -18,6 +18,8 @@ import toast from 'react-hot-toast'
 
 export default function RoundDetailPage() {
   const { roundId } = useParams()
+  const [searchParams] = useSearchParams()
+  const initialFilter = searchParams.get('testId') || ''
   const { profile } = useAuth()
   const { selected } = useProject()
   const navigate = useNavigate()
@@ -163,7 +165,11 @@ export default function RoundDetailPage() {
         testerName: tester?.name,
       }]} allPassed={allPassed} />
 
-      <RegressionTable testCases={cases} maxRounds={Math.max(3, funnelSteps.length)} />
+      <RegressionTable
+        testCases={cases}
+        maxRounds={Math.max(3, funnelSteps.length)}
+        initialSearch={initialFilter}
+      />
 
       {confirmDelete && (
         <div

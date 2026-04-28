@@ -199,7 +199,7 @@ export default function BugDetailPage() {
             <div className="card p-5">
               <div className="label-sm mb-3">Linked Items</div>
               <Link
-                to={`/rounds/${bug.roundId}`}
+                to={`/rounds/${bug.roundId}?testId=${encodeURIComponent(testCase.testId)}`}
                 className="flex items-center gap-2 text-body-md hover:text-primary"
               >
                 <LinkIcon size={12} className="text-ink-dim" />
