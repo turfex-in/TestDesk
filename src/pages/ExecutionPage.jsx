@@ -92,6 +92,11 @@ export default function ExecutionPage() {
     if (current && !currentId) setCurrentId(current.id)
   }, [current, currentId])
 
+  const isComplete =
+    !!current &&
+    (current.status === TESTCASE_STATUS.PASSED ||
+      current.status === TESTCASE_STATUS.FAILED)
+
   // Persist the in-flight timer to localStorage so a reload (or accidental
   // tab close) doesn't reset progress. Keyed per round+case so switching to a
   // different test doesn't pick up a stale session.
@@ -100,6 +105,10 @@ export default function ExecutionPage() {
 
   useEffect(() => {
     if (!current) return
+    setPhase('idle')
+    setElapsed(0)
+    // Don't restore a running session for an already-completed case.
+    if (isComplete) return
     const key = `td_run_${roundId}_${current.id}`
     const raw = localStorage.getItem(key)
     if (raw) {
@@ -111,16 +120,13 @@ export default function ExecutionPage() {
           setPhase('running')
           return
         }
-        // stale — drop it
         localStorage.removeItem(key)
       } catch {
         localStorage.removeItem(key)
       }
     }
-    setPhase('idle')
-    setElapsed(0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roundId, current?.id])
+  }, [roundId, current?.id, isComplete])
 
   function handleStart() {
     if (!current || phase !== 'idle') return
@@ -260,16 +266,46 @@ export default function ExecutionPage() {
           {current && (
             <div className="border-t border-outline-variant/50 px-8 py-4 shrink-0">
               <div className="max-w-3xl mx-auto">
-                {phase === 'idle' && (
+                {isComplete ? (
+                  <div className="flex gap-4 items-stretch">
+                    <div
+                      className={[
+                        'flex-1 h-14 px-4 rounded border flex items-center gap-3',
+                        current.status === TESTCASE_STATUS.PASSED
+                          ? 'border-secondary/50 bg-secondary-container/15 text-secondary'
+                          : 'border-danger/50 bg-danger-container/15 text-danger',
+                      ].join(' ')}
+                    >
+                      {current.status === TESTCASE_STATUS.PASSED ? (
+                        <CheckCircle2 size={18} />
+                      ) : (
+                        <XCircle size={18} />
+                      )}
+                      <span className="text-[15px] font-semibold uppercase tracking-wide">
+                        {current.status === TESTCASE_STATUS.PASSED ? 'Passed' : 'Failed'}
+                      </span>
+                      {Number.isFinite(current.timeTakenSeconds) && (
+                        <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-body-md text-ink-muted">
+                          <Clock size={14} />
+                          {fmtTime(current.timeTakenSeconds)}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={advance}
+                      className="btn h-14 px-6 text-[15px] font-semibold bg-primary-container hover:brightness-110 text-white rounded"
+                    >
+                      Next test <ChevronRight size={18} />
+                    </button>
+                  </div>
+                ) : phase === 'idle' ? (
                   <button
                     onClick={handleStart}
                     className="btn w-full h-14 text-[16px] font-semibold bg-primary-container hover:brightness-110 text-white rounded"
                   >
                     <Play size={20} /> START TEST
                   </button>
-                )}
-
-                {phase === 'running' && (
+                ) : (
                   <div className="flex gap-4">
                     <button
                       onClick={markPass}
@@ -285,11 +321,10 @@ export default function ExecutionPage() {
                     </button>
                   </div>
                 )}
-
               </div>
 
               <div className="max-w-3xl mx-auto flex items-center gap-6 mt-3 text-[12px] text-ink-dim">
-                {phase === 'running' && (
+                {phase === 'running' && !isComplete && (
                   <span className="flex items-center gap-1.5">
                     <Clock size={12} /> Elapsed: <span className="font-mono text-ink-muted">{fmtTime(elapsed)}</span>
                   </span>
