@@ -40,8 +40,7 @@ export default function ExecutionPage() {
   const [currentId, setCurrentId] = useState(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [elapsed, setElapsed] = useState(0)
-  const [phase, setPhase] = useState('idle') // 'idle' | 'running' | 'done'
-  const [finalElapsed, setFinalElapsed] = useState(0)
+  const [phase, setPhase] = useState('idle') // 'idle' | 'running'
   const startedAt = useRef(null)
 
   useEffect(() => {
@@ -93,20 +92,43 @@ export default function ExecutionPage() {
     if (current && !currentId) setCurrentId(current.id)
   }, [current, currentId])
 
-  // Reset phase + timer whenever the active test case changes.
-  // (startedAt ref is overwritten on Start, so it doesn't need a reset here.)
-  const [prevTestId, setPrevTestId] = useState(null)
-  const newTestId = current?.id ?? null
-  if (newTestId !== prevTestId) {
-    setPrevTestId(newTestId)
+  // Persist the in-flight timer to localStorage so a reload (or accidental
+  // tab close) doesn't reset progress. Keyed per round+case so switching to a
+  // different test doesn't pick up a stale session.
+  const sessionKey = current ? `td_run_${roundId}_${current.id}` : null
+  const SESSION_TTL_MS = 6 * 60 * 60 * 1000 // 6h sanity cap
+
+  useEffect(() => {
+    if (!current) return
+    const key = `td_run_${roundId}_${current.id}`
+    const raw = localStorage.getItem(key)
+    if (raw) {
+      try {
+        const { startedAt: ts } = JSON.parse(raw)
+        if (typeof ts === 'number' && Date.now() - ts < SESSION_TTL_MS) {
+          startedAt.current = ts
+          setElapsed(Math.floor((Date.now() - ts) / 1000))
+          setPhase('running')
+          return
+        }
+        // stale — drop it
+        localStorage.removeItem(key)
+      } catch {
+        localStorage.removeItem(key)
+      }
+    }
     setPhase('idle')
     setElapsed(0)
-    setFinalElapsed(0)
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roundId, current?.id])
 
   function handleStart() {
     if (!current || phase !== 'idle') return
-    startedAt.current = Date.now()
+    const ts = Date.now()
+    startedAt.current = ts
+    if (sessionKey) {
+      localStorage.setItem(sessionKey, JSON.stringify({ startedAt: ts }))
+    }
     setElapsed(0)
     setPhase('running')
   }
@@ -122,9 +144,9 @@ export default function ExecutionPage() {
         timeTakenSeconds: taken,
       })
       await incrementRoundCounts(roundId, { passed: 1, pending: -1 })
-      setFinalElapsed(taken)
-      setPhase('done')
-      toast.success(`${current.testId} passed`)
+      if (sessionKey) localStorage.removeItem(sessionKey)
+      toast.success(`${current.testId} passed · ${fmtTime(taken)}`)
+      advance()
     } catch (err) {
       toast.error(err.message)
     }
@@ -146,9 +168,10 @@ export default function ExecutionPage() {
         timeTakenSeconds: taken,
       })
       await incrementRoundCounts(roundId, { failed: 1, pending: -1 })
+      if (sessionKey) localStorage.removeItem(sessionKey)
       setDrawerOpen(false)
-      setFinalElapsed(taken)
-      setPhase('done')
+      toast.success(`${current.testId} failed · ${fmtTime(taken)}`)
+      advance()
     } catch (err) {
       toast.error(err.message)
     }
@@ -263,21 +286,6 @@ export default function ExecutionPage() {
                   </div>
                 )}
 
-                {phase === 'done' && (
-                  <div className="flex gap-4 items-stretch">
-                    <div className="flex-1 h-14 px-4 rounded border border-outline-variant/60 bg-surface-low flex items-center gap-3">
-                      <Clock size={16} className="text-ink-muted" />
-                      <span className="text-body-md text-ink-muted">Time taken</span>
-                      <span className="ml-auto font-mono text-h3 text-ink">{fmtTime(finalElapsed)}</span>
-                    </div>
-                    <button
-                      onClick={advance}
-                      className="btn h-14 px-6 text-[15px] font-semibold bg-primary-container hover:brightness-110 text-white rounded"
-                    >
-                      Next test <ChevronRight size={18} />
-                    </button>
-                  </div>
-                )}
               </div>
 
               <div className="max-w-3xl mx-auto flex items-center gap-6 mt-3 text-[12px] text-ink-dim">
