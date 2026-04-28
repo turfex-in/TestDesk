@@ -1,10 +1,15 @@
 import { Link } from 'react-router-dom'
 import { Check, X, Search } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Badge from '../common/Badge.jsx'
 
-export default function RegressionTable({ testCases = [], maxRounds = 3 }) {
-  const [search, setSearch] = useState('')
+export default function RegressionTable({ testCases = [], maxRounds = 3, initialSearch = '' }) {
+  const [search, setSearch] = useState(initialSearch)
+  // If we navigate from another bug link with a different testId param, reset
+  // the filter to match the new target.
+  useEffect(() => {
+    setSearch(initialSearch)
+  }, [initialSearch])
   const filtered = testCases.filter((tc) => {
     if (!search) return true
     const q = search.toLowerCase()
