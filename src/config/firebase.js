@@ -20,8 +20,7 @@ if (firebaseReady) {
   app = initializeApp(firebaseConfig)
   auth = getAuth(app)
   db = initializeFirestore(app, {
-    experimentalForceLongPolling: true,
-    useFetchStreams: false,
+    experimentalAutoDetectLongPolling: true,
   })
   storage = getStorage(app)
 } else if (typeof window !== 'undefined') {
