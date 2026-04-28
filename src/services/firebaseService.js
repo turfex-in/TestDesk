@@ -68,10 +68,22 @@ export async function updateProject(id, data) {
   await updateDoc(doc(db, TD.projects, id), data)
 }
 
+// Shared error logger for onSnapshot — without one, listener errors (most
+// commonly a missing composite index) are silently swallowed and the UI
+// just shows empty state. Logging surfaces the FAILED_PRECONDITION link
+// the SDK emits, which deep-links to "create this index" in the console.
+function snapshotError(label) {
+  return (err) => {
+    // eslint-disable-next-line no-console
+    console.error(`[firebaseService] ${label} listener failed:`, err.code, err.message)
+  }
+}
+
 export function watchProjects(cb) {
   return onSnapshot(
     query(collection(db, TD.projects), orderBy('createdAt', 'desc')),
-    (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    snapshotError('watchProjects')
   )
 }
 
@@ -101,7 +113,11 @@ export function watchRounds(projectId, cb) {
   const q = projectId
     ? query(collection(db, TD.rounds), where('projectId', '==', projectId), orderBy('createdAt', 'desc'))
     : query(collection(db, TD.rounds), orderBy('createdAt', 'desc'))
-  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+  return onSnapshot(
+    q,
+    (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    snapshotError('watchRounds')
+  )
 }
 
 export async function updateRound(roundId, patch) {
@@ -180,7 +196,11 @@ export async function bulkInsertTestCases(testCases) {
 
 export function watchTestCasesForRound(roundId, cb) {
   const q = query(collection(db, TD.testcases), where('roundId', '==', roundId))
-  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+  return onSnapshot(
+    q,
+    (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    snapshotError('watchTestCasesForRound')
+  )
 }
 
 export async function listTestCasesForRound(roundId) {
@@ -225,9 +245,13 @@ export async function getBug(id) {
 }
 
 export function watchBug(id, cb) {
-  return onSnapshot(doc(db, TD.bugs, id), (snap) => {
-    if (snap.exists()) cb({ id: snap.id, ...snap.data() })
-  })
+  return onSnapshot(
+    doc(db, TD.bugs, id),
+    (snap) => {
+      if (snap.exists()) cb({ id: snap.id, ...snap.data() })
+    },
+    snapshotError('watchBug')
+  )
 }
 
 export async function updateBug(id, patch) {
@@ -240,13 +264,23 @@ export function watchBugs({ projectId, roundId, status, reporter, limitCount = 1
   if (roundId) clauses.push(where('roundId', '==', roundId))
   if (status) clauses.push(where('status', '==', status))
   if (reporter) clauses.push(where('reportedBy', '==', reporter))
-  const q = query(
-    collection(db, TD.bugs),
-    ...clauses,
-    orderBy('createdAt', 'desc'),
-    limit(limitCount)
+  // Sort client-side to avoid needing a composite index for every combination
+  // of (projectId, reporter, status, ...) + createdAt. Practical up to a few
+  // hundred bugs per project.
+  const q = query(collection(db, TD.bugs), ...clauses, limit(limitCount))
+  return onSnapshot(
+    q,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      docs.sort((a, b) => {
+        const ta = a.createdAt?.toMillis?.() || 0
+        const tb = b.createdAt?.toMillis?.() || 0
+        return tb - ta
+      })
+      cb(docs)
+    },
+    snapshotError('watchBugs')
   )
-  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
 }
 
 export async function countBugsForProject(projectId) {
@@ -270,7 +304,11 @@ export async function addComment(bugId, { userId, userName, userRole, message, a
 
 export function watchComments(bugId, cb) {
   const q = query(collection(db, TD.comments), where('bugId', '==', bugId), orderBy('createdAt', 'asc'))
-  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+  return onSnapshot(
+    q,
+    (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    snapshotError('watchComments')
+  )
 }
 
 /* ───────────────────────── Batches ───────────────────────── */
