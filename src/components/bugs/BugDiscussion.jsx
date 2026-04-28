@@ -15,13 +15,19 @@ export default function BugDiscussion({ bug }) {
   const [message, setMessage] = useState('')
   const [attachFile, setAttachFile] = useState(null)
   const [sending, setSending] = useState(false)
-  const endRef = useRef(null)
+  const listRef = useRef(null)
 
   useEffect(() => {
     if (!bug?.id) return
     const off = watchComments(bug.id, (list) => {
       setComments(list)
-      setTimeout(() => endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 50)
+      // Scroll the messages container itself, not the page. Using
+      // scrollIntoView walks up to the page-level scroller and pushes the
+      // input field below the viewport.
+      requestAnimationFrame(() => {
+        const el = listRef.current
+        if (el) el.scrollTop = el.scrollHeight
+      })
     })
     return () => off && off()
   }, [bug?.id])
@@ -62,7 +68,7 @@ export default function BugDiscussion({ bug }) {
         <span className="ml-auto text-body-md text-ink-dim">{comments.length} messages</span>
       </div>
 
-      <div className="max-h-[420px] overflow-y-auto px-5 py-4 space-y-5">
+      <div ref={listRef} className="max-h-[420px] overflow-y-auto px-5 py-4 space-y-5">
         {comments.length === 0 && (
           <div className="text-center text-ink-dim text-body-md py-8">
             No messages yet. Start the discussion.
@@ -71,7 +77,6 @@ export default function BugDiscussion({ bug }) {
         {comments.map((c) => (
           <CommentBubble key={c.id} comment={c} isMine={c.userId === profile.uid} />
         ))}
-        <div ref={endRef} />
       </div>
 
       <form onSubmit={onSend} className="border-t border-outline-variant/40 p-4">
