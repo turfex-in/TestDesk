@@ -58,7 +58,7 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/td_rounds/$(resource.data.roundId))
         && get(/databases/$(database)/documents/td_rounds/$(resource.data.roundId)).data.assignedTo == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['status','executedAt','executedBy','updatedAt','batchDate','isCarryOver','isRetest','roundResults']);
+             .hasOnly(['status','executedAt','executedBy','updatedAt','batchDate','isCarryOver','isRetest','roundResults','timeTakenSeconds']);
     }
 
     match /td_bugs/{bid} {
