@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
-import { Search, Bell, HelpCircle, ChevronDown, FolderPlus, Check, LogOut } from 'lucide-react'
+import { Search, HelpCircle, ChevronDown, FolderPlus, Check, LogOut } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useProject } from '../../context/ProjectContext.jsx'
 import { ROLES } from '../../utils/constants'
 import toast from 'react-hot-toast'
+import NotificationsBell from './NotificationsBell.jsx'
 
 export default function TopBar() {
   const { profile, logout } = useAuth()
@@ -140,9 +141,7 @@ export default function TopBar() {
         <button className="btn btn-sm btn-ghost w-9 p-0">
           <HelpCircle size={18} />
         </button>
-        <button className="btn btn-sm btn-ghost w-9 p-0">
-          <Bell size={18} />
-        </button>
+        <NotificationsBell />
         <div className="relative" ref={userRef}>
           <button
             onClick={() => setUserOpen((o) => !o)}

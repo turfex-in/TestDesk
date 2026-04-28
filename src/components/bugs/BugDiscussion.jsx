@@ -43,6 +43,7 @@ export default function BugDiscussion({ bug }) {
         userRole: profile.role,
         message: message.trim(),
         attachments,
+        projectId: bug.projectId || null,
       })
       setMessage('')
       setAttachFile(null)

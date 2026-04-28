@@ -290,9 +290,10 @@ export async function countBugsForProject(projectId) {
 }
 
 /* ───────────────────────── Comments ───────────────────────── */
-export async function addComment(bugId, { userId, userName, userRole, message, attachments = [] }) {
+export async function addComment(bugId, { userId, userName, userRole, message, attachments = [], projectId = null }) {
   await addDoc(collection(db, TD.comments), {
     bugId,
+    projectId,
     userId,
     userName,
     userRole,
@@ -308,6 +309,24 @@ export function watchComments(bugId, cb) {
     q,
     (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
     snapshotError('watchComments')
+  )
+}
+
+/**
+ * Watch the most recent comments across the whole comments collection.
+ * Used by the notifications bell. Filtering by project / user is done
+ * client-side in the consumer, so we don't need a composite index.
+ */
+export function watchRecentComments(cb, limitCount = 30) {
+  const q = query(
+    collection(db, TD.comments),
+    orderBy('createdAt', 'desc'),
+    limit(limitCount)
+  )
+  return onSnapshot(
+    q,
+    (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    snapshotError('watchRecentComments')
   )
 }
 
