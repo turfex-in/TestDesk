@@ -16,17 +16,26 @@ export default function BugDiscussion({ bug }) {
   const [attachFile, setAttachFile] = useState(null)
   const [sending, setSending] = useState(false)
   const listRef = useRef(null)
+  const formRef = useRef(null)
 
   useEffect(() => {
     if (!bug?.id) return
     const off = watchComments(bug.id, (list) => {
       setComments(list)
-      // Scroll the messages container itself, not the page. Using
-      // scrollIntoView walks up to the page-level scroller and pushes the
-      // input field below the viewport.
       requestAnimationFrame(() => {
+        // Scroll the messages container itself so the newest bubble is in view.
         const el = listRef.current
         if (el) el.scrollTop = el.scrollHeight
+        // The card grows in normal document flow until the list hits its
+        // max-height — so a new message can push the input below the
+        // viewport. Scroll the page just enough to keep the input visible.
+        const form = formRef.current
+        if (form) {
+          const r = form.getBoundingClientRect()
+          if (r.bottom > window.innerHeight) {
+            form.scrollIntoView({ block: 'end', behavior: 'smooth' })
+          }
+        }
       })
     })
     return () => off && off()
@@ -79,7 +88,7 @@ export default function BugDiscussion({ bug }) {
         ))}
       </div>
 
-      <form onSubmit={onSend} className="border-t border-outline-variant/40 p-4">
+      <form ref={formRef} onSubmit={onSend} className="border-t border-outline-variant/40 p-4">
         {attachFile && (
           <div className="flex items-center gap-2 mb-2 text-body-md">
             <Badge tone="primary">{attachFile.name}</Badge>
