@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   BarChart3,
   CheckCircle2,
@@ -26,6 +26,8 @@ import EmptyState from '../components/common/EmptyState.jsx'
 
 export default function AnalyticsPage() {
   const { selected } = useProject()
+  const [searchParams] = useSearchParams()
+  const scopeRoundId = searchParams.get('round') || null
   const [loading, setLoading] = useState(true)
   const [cases, setCases] = useState([])
   const [bugs, setBugs] = useState([])
@@ -67,8 +69,17 @@ export default function AnalyticsPage() {
   }, [selected?.id])
 
   const stats = useMemo(
-    () => computeStats(cases, bugs, users, rounds),
-    [cases, bugs, users, rounds]
+    () => computeStats(cases, bugs, users, rounds, scopeRoundId),
+    [cases, bugs, users, rounds, scopeRoundId]
+  )
+
+  const scopeRound = useMemo(
+    () => (scopeRoundId ? rounds.find((r) => r.id === scopeRoundId) || null : null),
+    [rounds, scopeRoundId]
+  )
+  const scopeTester = useMemo(
+    () => (scopeRound ? users.find((u) => u.uid === scopeRound.assignedTo) || null : null),
+    [scopeRound, users]
   )
 
   if (!selected) {
@@ -108,11 +119,33 @@ export default function AnalyticsPage() {
   return (
     <div className="max-w-7xl mx-auto px-8 py-8 space-y-6">
       <header>
-        <h1 className="text-h1 mb-1">Analytics</h1>
+        {scopeRoundId && (
+          <Link
+            to="/analytics"
+            className="text-[12px] text-ink-dim hover:text-primary inline-flex items-center gap-1 mb-2"
+          >
+            ← Project analytics
+          </Link>
+        )}
+        <h1 className="text-h1 mb-1">
+          {scopeRound ? scopeRound.name : 'Analytics'}
+        </h1>
         <p className="text-body-lg text-ink-muted">
-          {selected.name} · {rounds.length} round{rounds.length === 1 ? '' : 's'} ·{' '}
-          {cases.length} test case{cases.length === 1 ? '' : 's'} · {bugs.length} bug
-          {bugs.length === 1 ? '' : 's'}
+          {scopeRound ? (
+            <>
+              {selected.name} · Lead:{' '}
+              <span className="text-ink">{scopeTester?.name || '—'}</span>
+              {' · '}
+              {stats.executed} executed · {stats.bugsTotal} bug
+              {stats.bugsTotal === 1 ? '' : 's'}
+            </>
+          ) : (
+            <>
+              {selected.name} · {rounds.length} round{rounds.length === 1 ? '' : 's'} ·{' '}
+              {cases.length} test case{cases.length === 1 ? '' : 's'} · {bugs.length} bug
+              {bugs.length === 1 ? '' : 's'}
+            </>
+          )}
         </p>
       </header>
 
@@ -457,15 +490,26 @@ export default function AnalyticsPage() {
   )
 }
 
-function computeStats(cases, bugs, users, rounds = []) {
-  const passed = cases.filter((c) => c.status === TESTCASE_STATUS.PASSED).length
-  const failed = cases.filter((c) => c.status === TESTCASE_STATUS.FAILED).length
-  const retest = cases.filter((c) => c.status === TESTCASE_STATUS.RETEST).length
-  const pending = cases.filter((c) => c.status === TESTCASE_STATUS.PENDING).length
+function computeStats(cases, bugs, users, rounds = [], scopeRoundId = null) {
+  // When scoped to a round, almost everything filters to that round's
+  // cases / bugs. Regression detection is the exception — it needs the
+  // full project history to compare across rounds, then filters to ones
+  // that landed in this round.
+  const scopedCases = scopeRoundId
+    ? cases.filter((c) => c.roundId === scopeRoundId)
+    : cases
+  const scopedBugs = scopeRoundId
+    ? bugs.filter((b) => b.roundId === scopeRoundId)
+    : bugs
+
+  const passed = scopedCases.filter((c) => c.status === TESTCASE_STATUS.PASSED).length
+  const failed = scopedCases.filter((c) => c.status === TESTCASE_STATUS.FAILED).length
+  const retest = scopedCases.filter((c) => c.status === TESTCASE_STATUS.RETEST).length
+  const pending = scopedCases.filter((c) => c.status === TESTCASE_STATUS.PENDING).length
   const executed = passed + failed
   const passRate = executed ? Math.round((passed / executed) * 100) : 0
 
-  const timed = cases
+  const timed = scopedCases
     .map((c) => Number(c.timeTakenSeconds))
     .filter((s) => Number.isFinite(s) && s > 0)
   const avgSecPerCase = timed.length
@@ -474,7 +518,7 @@ function computeStats(cases, bugs, users, rounds = []) {
 
   // Failure rate per module (only counts executed cases — pending excluded)
   const moduleMap = new Map()
-  for (const c of cases) {
+  for (const c of scopedCases) {
     const key = c.module || '(no module)'
     if (!moduleMap.has(key)) moduleMap.set(key, { name: key, executed: 0, failed: 0 })
     if (c.status === TESTCASE_STATUS.PASSED || c.status === TESTCASE_STATUS.FAILED) {
@@ -501,18 +545,18 @@ function computeStats(cases, bugs, users, rounds = []) {
   const severityCounts = { Critical: 0, High: 0, Medium: 0, Low: 0 }
   let bugsFixed = 0
   let bugsBacklog = 0
-  for (const b of bugs) {
+  for (const b of scopedBugs) {
     if (bugStatusCounts[b.status] != null) bugStatusCounts[b.status] += 1
     if (severityCounts[b.severity] != null) severityCounts[b.severity] += 1
     if (b.status === BUG_STATUS.FIXED) bugsFixed += 1
     if (b.status === BUG_STATUS.REJECTED) bugsBacklog += 1
   }
-  const bugsTotal = bugs.length
+  const bugsTotal = scopedBugs.length
   const bugsOpen =
     bugStatusCounts.open + bugStatusCounts.in_progress + bugStatusCounts.retest
 
   // Average time-to-fix (in hours)
-  const fixDurations = bugs
+  const fixDurations = scopedBugs
     .map((b) => {
       const created = toMillis(b.createdAt)
       const fixed = toMillis(b.fixedAt)
@@ -527,7 +571,7 @@ function computeStats(cases, bugs, users, rounds = []) {
   // Tester productivity (only testers who actually executed something)
   const userById = new Map(users.map((u) => [u.uid, u]))
   const testerMap = new Map()
-  for (const c of cases) {
+  for (const c of scopedCases) {
     if (c.status !== TESTCASE_STATUS.PASSED && c.status !== TESTCASE_STATUS.FAILED) continue
     if (!c.executedBy) continue
     if (!testerMap.has(c.executedBy)) {
@@ -619,12 +663,20 @@ function computeStats(cases, bugs, users, rounds = []) {
     (a, b) =>
       (toMillis(b.toRound?.createdAt) || 0) - (toMillis(a.toRound?.createdAt) || 0)
   )
+  // When scoped to a round, only show regressions that landed in this round
+  // (the FAILED side). Recoveries follow the same rule.
+  const scopedRegressions = scopeRoundId
+    ? regressions.filter((r) => r.roundId === scopeRoundId)
+    : regressions
+  const scopedRecoveries = scopeRoundId
+    ? recoveries.filter((r) => r.toRound?.id === scopeRoundId)
+    : recoveries
 
   // Oldest open bugs — bugs that have been sitting in the active queue the
   // longest without being closed, fixed, or backlogged. A signal of triage
   // debt.
   const now = Date.now()
-  const openBugs = bugs
+  const openBugs = scopedBugs
     .filter(
       (b) =>
         b.status === BUG_STATUS.OPEN ||
@@ -659,8 +711,8 @@ function computeStats(cases, bugs, users, rounds = []) {
     fixedWithDuration: fixDurations.length,
     modules,
     testers,
-    regressions,
-    recoveries,
+    regressions: scopedRegressions,
+    recoveries: scopedRecoveries,
     openBugsAged: openBugs,
   }
 }

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import ProgressRing from '../common/ProgressRing.jsx'
 import Avatar from '../common/Avatar.jsx'
 import Badge from '../common/Badge.jsx'
@@ -11,6 +11,7 @@ const STATUS_TONE = {
 }
 
 export default function RoundCard({ round, tester }) {
+  const navigate = useNavigate()
   const total = round.totalCases || 0
   const passed = round.passed || 0
   const failed = round.failed || 0
@@ -60,7 +61,17 @@ export default function RoundCard({ round, tester }) {
 
       <div className="flex items-center justify-between mt-4">
         <Avatar name={tester?.name} size="sm" />
-        <span className="text-body-md text-primary font-medium">View Analytics →</span>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            navigate(`/analytics?round=${round.id}`)
+          }}
+          className="text-body-md text-primary font-medium hover:underline"
+        >
+          View Analytics →
+        </button>
       </div>
     </Link>
   )
