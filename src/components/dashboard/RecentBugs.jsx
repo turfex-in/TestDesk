@@ -1,13 +1,19 @@
 import { Link } from 'react-router-dom'
-import { Filter, MoreVertical, ImageIcon } from 'lucide-react'
+import { useState } from 'react'
+import { Filter, MoreVertical, ImageIcon, CheckCircle2, Archive, RotateCcw, Loader2 } from 'lucide-react'
+import toast from 'react-hot-toast'
 import Badge from '../common/Badge.jsx'
 import Avatar from '../common/Avatar.jsx'
 import { statusTone, fmtRelative } from '../../utils/helpers'
-import { BUG_STATUS_LABEL } from '../../utils/constants'
+import { BUG_STATUS, BUG_STATUS_LABEL, ROLES, TESTCASE_STATUS } from '../../utils/constants'
+import { useAuth } from '../../context/AuthContext.jsx'
+import { updateBug, updateTestCase } from '../../services/firebaseService'
 
 const SEVERITY_TONE = { Critical: 'danger', High: 'tertiary', Medium: 'primary', Low: 'secondary' }
 
 export default function RecentBugs({ bugs, users }) {
+  const { profile } = useAuth()
+  const isDev = profile?.role === ROLES.DEVELOPER
   const userMap = Object.fromEntries(users.map((u) => [u.uid, u]))
   return (
     <div className="card overflow-hidden">
@@ -32,12 +38,13 @@ export default function RecentBugs({ bugs, users }) {
               <th className="text-left px-5 py-3 font-semibold">Reporter</th>
               <th className="text-left px-5 py-3 font-semibold">Status</th>
               <th className="text-left px-5 py-3 font-semibold">Evidence</th>
+              {isDev && <th className="text-right px-5 py-3 font-semibold">Actions</th>}
             </tr>
           </thead>
           <tbody>
             {bugs.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-5 py-10 text-center text-ink-dim">
+                <td colSpan={isDev ? 7 : 6} className="px-5 py-10 text-center text-ink-dim">
                   No bugs reported yet.
                 </td>
               </tr>
@@ -81,12 +88,120 @@ export default function RecentBugs({ bugs, users }) {
                       </div>
                     )}
                   </td>
+                  {isDev && (
+                    <td className="px-5 py-3">
+                      <RowActions bug={b} />
+                    </td>
+                  )}
                 </tr>
               )
             })}
           </tbody>
         </table>
       </div>
+    </div>
+  )
+}
+
+// Inline triage actions for the dev. Quick Fix / Backlog / Reopen straight
+// from the list — no need to open the detail page for routine triage.
+// Backlog skips the optional reason prompt; use the detail page for that.
+function RowActions({ bug }) {
+  const [busy, setBusy] = useState(null)
+  const isFixed = bug.status === BUG_STATUS.FIXED
+  const isRejected = bug.status === BUG_STATUS.REJECTED
+  const isClosed = bug.status === BUG_STATUS.CLOSED
+  const isRetest = bug.status === BUG_STATUS.RETEST
+
+  async function fix() {
+    if (busy) return
+    setBusy('fix')
+    try {
+      await updateBug(bug.id, { status: BUG_STATUS.FIXED, fixedAt: new Date() })
+      if (bug.testCaseId) {
+        await updateTestCase(bug.testCaseId, { status: TESTCASE_STATUS.RETEST })
+      }
+      toast.success(`${bug.bugId || 'Bug'} marked as fixed`)
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function backlog() {
+    if (busy) return
+    setBusy('backlog')
+    try {
+      await updateBug(bug.id, { status: BUG_STATUS.REJECTED })
+      if (bug.testCaseId) {
+        await updateTestCase(bug.testCaseId, { isBacklogged: true })
+      }
+      toast.success(`${bug.bugId || 'Bug'} moved to backlog`)
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function reopen() {
+    if (busy) return
+    setBusy('reopen')
+    try {
+      await updateBug(bug.id, { status: BUG_STATUS.OPEN })
+      if (bug.testCaseId) {
+        await updateTestCase(bug.testCaseId, { isBacklogged: false })
+      }
+      toast.success(`${bug.bugId || 'Bug'} reopened`)
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  // Closed and Retest are terminal/in-flight states the dev shouldn't
+  // override casually — leave the action cell empty so they go through the
+  // detail page's status dropdown if they really need to.
+  if (isClosed || isRetest) {
+    return <span className="text-[11px] text-ink-dim">—</span>
+  }
+
+  return (
+    <div className="flex items-center justify-end gap-1.5">
+      {isFixed || isRejected ? (
+        <button
+          onClick={reopen}
+          disabled={busy}
+          className="btn btn-sm btn-ghost text-ink-muted hover:text-primary"
+          title="Reopen"
+        >
+          {busy === 'reopen' ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
+          Reopen
+        </button>
+      ) : (
+        <>
+          <button
+            onClick={fix}
+            disabled={busy}
+            className="btn btn-sm btn-ghost text-ink-muted hover:text-secondary"
+            title="Mark as fixed"
+          >
+            {busy === 'fix' ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+            Fix
+          </button>
+          <button
+            onClick={backlog}
+            disabled={busy}
+            className="btn btn-sm btn-ghost text-ink-muted hover:text-tertiary"
+            title="Move to backlog"
+          >
+            {busy === 'backlog' ? <Loader2 size={12} className="animate-spin" /> : <Archive size={12} />}
+            Backlog
+          </button>
+        </>
+      )}
     </div>
   )
 }
