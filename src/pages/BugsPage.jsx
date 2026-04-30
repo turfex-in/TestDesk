@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Bug, Search } from 'lucide-react'
+import { Bug, Search, ArrowDown, ArrowUp } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useProject } from '../context/ProjectContext.jsx'
 import { watchBugs, listUsers } from '../services/firebaseService'
@@ -25,6 +25,7 @@ export default function BugsPage({ defaultFilter = 'all', pageTitle, pageDescrip
   const [users, setUsers] = useState([])
   const [filter, setFilter] = useState(defaultFilter)
   const [search, setSearch] = useState('')
+  const [order, setOrder] = useState('desc') // 'desc' newest-first | 'asc' oldest-first
 
   // Pin the filter to the route's default when the route changes — the
   // sidebar links rely on each page (Bugs / Fixed / Backlog) opening to
@@ -43,7 +44,7 @@ export default function BugsPage({ defaultFilter = 'all', pageTitle, pageDescrip
   }, [selected?.id, isDev, profile?.uid])
 
   const filtered = useMemo(() => {
-    return bugs.filter((b) => {
+    const out = bugs.filter((b) => {
       // "All" shows only active work — fixed and backlogged bugs are out
       // of the dev's queue and only show under their own explicit tabs.
       // If the tester retests a fixed case and fails it, the failure
@@ -61,7 +62,10 @@ export default function BugsPage({ defaultFilter = 'all', pageTitle, pageDescrip
       }
       return true
     })
-  }, [bugs, filter, search])
+    // watchBugs returns newest-first; reverse when the user wants oldest-first.
+    if (order === 'asc') return [...out].reverse()
+    return out
+  }, [bugs, filter, search, order])
 
   return (
     <div className="max-w-7xl mx-auto px-8 py-8">
@@ -83,7 +87,15 @@ export default function BugsPage({ defaultFilter = 'all', pageTitle, pageDescrip
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex gap-1 ml-auto">
+        <button
+          onClick={() => setOrder((o) => (o === 'desc' ? 'asc' : 'desc'))}
+          className="ml-auto px-3 py-1.5 rounded text-body-md font-medium text-ink-muted hover:bg-surface-high inline-flex items-center gap-1.5"
+          title={order === 'desc' ? 'Newest first — click to flip' : 'Oldest first — click to flip'}
+        >
+          {order === 'desc' ? <ArrowDown size={14} /> : <ArrowUp size={14} />}
+          {order === 'desc' ? 'Newest' : 'Oldest'}
+        </button>
+        <div className="flex gap-1">
           {STATUS_FILTERS.map((f) => (
             <button
               key={f.key}
