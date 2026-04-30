@@ -17,14 +17,21 @@ const STATUS_FILTERS = [
   { key: BUG_STATUS.REJECTED, label: 'Backlog' },
 ]
 
-export default function BugsPage() {
+export default function BugsPage({ defaultFilter = 'all', pageTitle, pageDescription }) {
   const { profile } = useAuth()
   const { selected } = useProject()
   const isDev = profile?.role === ROLES.DEVELOPER
   const [bugs, setBugs] = useState([])
   const [users, setUsers] = useState([])
-  const [filter, setFilter] = useState('all')
+  const [filter, setFilter] = useState(defaultFilter)
   const [search, setSearch] = useState('')
+
+  // Pin the filter to the route's default when the route changes — the
+  // sidebar links rely on each page (Bugs / Fixed / Backlog) opening to
+  // its own tab. Local clicks on the filter row still work afterward.
+  useEffect(() => {
+    setFilter(defaultFilter)
+  }, [defaultFilter])
 
   useEffect(() => {
     if (!selected?.id) return setBugs([])
@@ -59,9 +66,10 @@ export default function BugsPage() {
   return (
     <div className="max-w-7xl mx-auto px-8 py-8">
       <header className="mb-6">
-        <h1 className="text-h1 mb-1">Bugs</h1>
+        <h1 className="text-h1 mb-1">{pageTitle || 'Bugs'}</h1>
         <p className="text-body-lg text-ink-muted">
-          {isDev ? 'All reported bugs across rounds.' : 'Bugs you reported.'}
+          {pageDescription ||
+            (isDev ? 'All reported bugs across rounds.' : 'Bugs you reported.')}
         </p>
       </header>
 

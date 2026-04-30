@@ -77,6 +77,8 @@ export default function App() {
         <Route path="/rounds/:roundId" element={<RoundDetailPage />} />
         <Route path="/rounds/:roundId/execute" element={<ExecutionPage />} />
         <Route path="/bugs" element={<BugsPage />} />
+        <Route path="/bugs/fixed" element={<BugsPage defaultFilter="fixed" pageTitle="Fixed" pageDescription="Bugs the developer has fixed and queued for retest." />} />
+        <Route path="/bugs/backlog" element={<BugsPage defaultFilter="rejected" pageTitle="Backlog" pageDescription="Bugs deferred — no fix or retest planned. Reopen if priorities change." />} />
         <Route path="/bugs/:bugId" element={<BugDetailPage />} />
         <Route
           path="/settings"
