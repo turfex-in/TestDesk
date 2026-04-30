@@ -1,3 +1,4 @@
+import { StickyNote } from 'lucide-react'
 import { cn } from '../../utils/helpers'
 import { TESTCASE_STATUS } from '../../utils/constants'
 
@@ -36,7 +37,16 @@ export default function TestTimeline({ cases, currentId, onSelect, version }) {
                     active ? 'text-primary font-semibold' : 'text-ink-muted hover:text-ink'
                   )}
                 >
-                  <span className="font-mono text-[12px]">{tc.testId}</span>
+                  <span className="font-mono text-[12px] inline-flex items-center gap-1.5">
+                    {tc.testId}
+                    {tc.testerNotes && (
+                      <StickyNote
+                        size={11}
+                        className="text-secondary"
+                        aria-label="Has tester note"
+                      />
+                    )}
+                  </span>
                   <span className="ml-2 truncate block text-[12px] text-ink-dim">
                     {active ? 'Current' : statusLabel(tc)}
                   </span>

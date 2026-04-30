@@ -41,8 +41,11 @@ export default function ExecutionPage() {
   const [currentId, setCurrentId] = useState(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [elapsed, setElapsed] = useState(0)
-  const [phase, setPhase] = useState('idle') // 'idle' | 'running'
+  const [phase, setPhase] = useState('idle') // 'idle' | 'running' | 'confirm-pass'
   const [note, setNote] = useState('')
+  // Frozen elapsed time at the moment the tester clicks PASS, so the time
+  // doesn't keep ticking while they write a note.
+  const [pendingTaken, setPendingTaken] = useState(0)
   const startedAt = useRef(null)
 
   useEffect(() => {
@@ -118,6 +121,7 @@ export default function ExecutionPage() {
     setPhase('idle')
     setElapsed(0)
     setNote('')
+    setPendingTaken(0)
     // Don't restore a running session for an already-completed case.
     if (isComplete) return
     const key = `td_run_${roundId}_${current.id}`
@@ -150,21 +154,35 @@ export default function ExecutionPage() {
     setPhase('running')
   }
 
-  async function markPass() {
+  // PASS is a two-step confirm so the tester can optionally jot a note.
+  // Click PASS → freeze the timer, swap the footer to a note + Confirm panel.
+  function startConfirmPass() {
     if (!current || phase !== 'running') return
     const taken = Math.floor((Date.now() - startedAt.current) / 1000)
+    setPendingTaken(taken)
+    setPhase('confirm-pass')
+  }
+
+  function cancelConfirmPass() {
+    if (phase !== 'confirm-pass') return
+    setPhase('running')
+  }
+
+  async function confirmPass() {
+    if (!current || phase !== 'confirm-pass') return
     const trimmedNote = note.trim()
     try {
       await updateTestCase(current.id, {
         status: TESTCASE_STATUS.PASSED,
         executedAt: new Date(),
         executedBy: profile.uid,
-        timeTakenSeconds: taken,
+        timeTakenSeconds: pendingTaken,
         testerNotes: trimmedNote || null,
       })
       await incrementRoundCounts(roundId, { passed: 1, pending: -1 })
       if (sessionKey) localStorage.removeItem(sessionKey)
-      toast.success(`${current.testId} passed · ${fmtTime(taken)}`)
+      const suffix = trimmedNote ? ' · note saved' : ''
+      toast.success(`${current.testId} passed · ${fmtTime(pendingTaken)}${suffix}`)
       advance()
     } catch (err) {
       toast.error(err.message)
@@ -339,35 +357,57 @@ export default function ExecutionPage() {
                       <SkipForward size={16} /> Skip
                     </button>
                   </div>
-                ) : (
+                ) : phase === 'confirm-pass' ? (
                   <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-secondary text-body-md">
+                      <CheckCircle2 size={16} />
+                      <span className="font-semibold">Marking as passed</span>
+                      <span className="text-ink-dim">·</span>
+                      <span className="font-mono text-ink-muted">{fmtTime(pendingTaken)}</span>
+                    </div>
                     <textarea
+                      autoFocus
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
-                      placeholder="Notes for this PASS — optional (e.g. tested only on Pixel 8, slow network)"
-                      rows={1}
-                      className="input w-full min-h-[40px] resize-y text-body-md"
+                      placeholder="Add a note (optional) — e.g. tested only on Pixel 8, slow network"
+                      rows={2}
+                      className="input w-full min-h-[60px] resize-y text-body-md"
                     />
                     <div className="flex gap-3">
                       <button
-                        onClick={markPass}
+                        onClick={cancelConfirmPass}
+                        className="btn h-14 px-5 text-[14px] font-semibold border border-outline-variant/60 text-ink-muted hover:text-ink rounded"
+                      >
+                        Back
+                      </button>
+                      <button
+                        onClick={confirmPass}
                         className="btn flex-1 h-14 text-[16px] font-semibold bg-secondary-container hover:brightness-110 text-white rounded"
                       >
-                        <CheckCircle2 size={20} /> PASS
-                      </button>
-                      <button
-                        onClick={startFail}
-                        className="btn flex-1 h-14 text-[16px] font-semibold bg-danger-container hover:brightness-110 text-white rounded"
-                      >
-                        <XCircle size={20} /> FAIL
-                      </button>
-                      <button
-                        onClick={markSkip}
-                        className="btn h-14 px-5 text-[14px] font-semibold border border-outline-variant/60 text-ink-muted hover:text-ink hover:border-tertiary/60 hover:bg-tertiary/10 rounded"
-                      >
-                        <SkipForward size={16} /> Skip
+                        <CheckCircle2 size={20} /> Submit pass
                       </button>
                     </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-3">
+                    <button
+                      onClick={startConfirmPass}
+                      className="btn flex-1 h-14 text-[16px] font-semibold bg-secondary-container hover:brightness-110 text-white rounded"
+                    >
+                      <CheckCircle2 size={20} /> PASS
+                    </button>
+                    <button
+                      onClick={startFail}
+                      className="btn flex-1 h-14 text-[16px] font-semibold bg-danger-container hover:brightness-110 text-white rounded"
+                    >
+                      <XCircle size={20} /> FAIL
+                    </button>
+                    <button
+                      onClick={markSkip}
+                      className="btn h-14 px-5 text-[14px] font-semibold border border-outline-variant/60 text-ink-muted hover:text-ink hover:border-tertiary/60 hover:bg-tertiary/10 rounded"
+                    >
+                      <SkipForward size={16} /> Skip
+                    </button>
                   </div>
                 )}
               </div>
