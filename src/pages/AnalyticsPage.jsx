@@ -11,7 +11,12 @@ import {
   AlertTriangle,
   History,
   Hourglass,
+  Sparkles,
+  Loader2,
 } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { evaluateTesterEffectiveness, aiReady } from '../services/aiService'
+import Avatar from '../components/common/Avatar.jsx'
 import { useProject } from '../context/ProjectContext.jsx'
 import {
   listTestCasesForProject,
@@ -33,6 +38,8 @@ export default function AnalyticsPage() {
   const [bugs, setBugs] = useState([])
   const [rounds, setRounds] = useState([])
   const [users, setUsers] = useState([])
+  const [aiEvals, setAiEvals] = useState(null) // null = not run, [] = empty, [...] = results
+  const [aiLoading, setAiLoading] = useState(false)
 
   useEffect(() => {
     if (!selected?.id) {
@@ -81,6 +88,58 @@ export default function AnalyticsPage() {
     () => (scopeRound ? users.find((u) => u.uid === scopeRound.assignedTo) || null : null),
     [scopeRound, users]
   )
+
+  // Reset any cached AI assessment when the scope changes — the underlying
+  // numbers are different so a stale evaluation would mislead.
+  useEffect(() => {
+    setAiEvals(null)
+  }, [scopeRoundId, selected?.id])
+
+  async function runAiAssessment() {
+    if (aiLoading) return
+    if (!stats.testers.length) {
+      toast.error('No tester activity to evaluate yet.')
+      return
+    }
+    setAiLoading(true)
+    try {
+      const teamBaselines = {
+        avg_cases_per_tester: Math.round(
+          stats.testers.reduce((a, t) => a + t.cases, 0) / stats.testers.length
+        ),
+        avg_pass_rate_pct: Math.round(
+          stats.testers.reduce((a, t) => a + t.passRate, 0) / stats.testers.length
+        ),
+        avg_seconds_per_case: stats.avgSecPerCase,
+        avg_bugs_per_tester: Math.round(
+          stats.testers.reduce((a, t) => a + t.bugsReported, 0) / stats.testers.length
+        ),
+      }
+      const payload = {
+        projectName: selected?.name || 'Unknown',
+        teamBaselines,
+        testers: stats.testers.map((t) => ({
+          name: t.name,
+          cases_executed: t.cases,
+          pass_rate_pct: t.passRate,
+          avg_seconds_per_case: t.avgSec,
+          bugs_reported: t.bugsReported,
+          bugs_critical: t.bugsCritical,
+          bugs_high: t.bugsHigh,
+          bugs_fixed: t.bugsFixed,
+          bugs_backlogged: t.bugsBacklogged,
+          bug_fix_rate_pct: t.bugFixRate,
+          bug_backlog_rate_pct: t.bugBacklogRate,
+        })),
+      }
+      const evals = await evaluateTesterEffectiveness(payload)
+      setAiEvals(evals)
+    } catch (err) {
+      toast.error(err.message || 'Could not get AI assessment')
+    } finally {
+      setAiLoading(false)
+    }
+  }
 
   if (!selected) {
     return (
@@ -486,6 +545,120 @@ export default function AnalyticsPage() {
           )}
         </Card>
       </div>
+
+      <Card
+        title="AI tester effectiveness"
+        subtitle="A QA-lead-style read on each tester's strengths, weaknesses, and one suggested action — based on volume, speed, pass rate, and bug-report quality."
+        icon={Sparkles}
+      >
+        {!aiReady() ? (
+          <Empty text="Gemini API key not configured. Set VITE_GEMINI_API_KEY in .env to enable AI assessment." />
+        ) : stats.testers.length === 0 ? (
+          <Empty text="No tester activity yet." />
+        ) : aiEvals === null ? (
+          <div className="flex flex-col items-start gap-3">
+            <p className="text-body-md text-ink-muted">
+              Send the per-tester stats and team baselines to Gemini and get back
+              a 1–10 score, strengths, weaknesses, and a recommended action for
+              each tester. Burns one API call.
+            </p>
+            <button
+              onClick={runAiAssessment}
+              disabled={aiLoading}
+              className="btn btn-md btn-primary"
+            >
+              {aiLoading ? <Loader2 className="animate-spin" size={14} /> : <Sparkles size={14} />}
+              {aiLoading ? 'Analyzing…' : 'Analyze with AI'}
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] text-ink-dim">
+                Generated from {stats.testers.length} tester
+                {stats.testers.length === 1 ? '' : 's'}. Re-run after fresh data.
+              </span>
+              <button
+                onClick={runAiAssessment}
+                disabled={aiLoading}
+                className="btn btn-sm btn-ghost"
+              >
+                {aiLoading ? <Loader2 className="animate-spin" size={12} /> : <Sparkles size={12} />}
+                Re-run
+              </button>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {aiEvals.map((e, i) => (
+                <TesterEvaluation key={`${e.name}-${i}`} evaluation={e} />
+              ))}
+            </div>
+          </div>
+        )}
+      </Card>
+    </div>
+  )
+}
+
+function TesterEvaluation({ evaluation }) {
+  const score = Math.max(1, Math.min(10, Number(evaluation.score) || 0))
+  const tone =
+    score >= 8 ? 'secondary' : score >= 6 ? 'primary' : score >= 4 ? 'tertiary' : 'danger'
+  const ringClass =
+    tone === 'secondary'
+      ? 'border-secondary/60 bg-secondary-container/15 text-secondary'
+      : tone === 'primary'
+      ? 'border-primary/60 bg-primary-container/15 text-primary'
+      : tone === 'tertiary'
+      ? 'border-tertiary/60 bg-tertiary/15 text-tertiary'
+      : 'border-danger/60 bg-danger-container/15 text-danger'
+  return (
+    <div className="border border-outline-variant/40 rounded-md p-4 bg-surface-low/40">
+      <div className="flex items-center gap-3 mb-3">
+        <Avatar name={evaluation.name} size="sm" />
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold truncate">{evaluation.name}</div>
+        </div>
+        <div
+          className={[
+            'w-12 h-12 rounded-full border-2 flex items-center justify-center font-mono text-h3 font-bold shrink-0',
+            ringClass,
+          ].join(' ')}
+        >
+          {score}
+        </div>
+      </div>
+      {evaluation.strengths?.length > 0 && (
+        <div className="mb-2">
+          <div className="text-[10px] uppercase tracking-wider text-ink-dim mb-1">Strengths</div>
+          <div className="flex flex-wrap gap-1.5">
+            {evaluation.strengths.map((s, i) => (
+              <Badge key={i} tone="secondary" size="sm" uppercase={false}>
+                {s}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+      {evaluation.weaknesses?.length > 0 && (
+        <div className="mb-2">
+          <div className="text-[10px] uppercase tracking-wider text-ink-dim mb-1">Weaknesses</div>
+          <div className="flex flex-wrap gap-1.5">
+            {evaluation.weaknesses.map((w, i) => (
+              <Badge key={i} tone="danger" size="sm" uppercase={false}>
+                {w}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+      {evaluation.recommendation && (
+        <div className="mt-3 pt-3 border-t border-outline-variant/30 text-body-md text-ink">
+          <span className="text-[10px] uppercase tracking-wider text-ink-dim mr-2">
+            Action
+          </span>
+          {evaluation.recommendation}
+        </div>
+      )}
     </div>
   )
 }
@@ -589,16 +762,56 @@ function computeStats(cases, bugs, users, rounds = [], scopeRoundId = null) {
     const s = Number(c.timeTakenSeconds)
     if (Number.isFinite(s) && s > 0) t.secs.push(s)
   }
+  // Per-tester bug-side stats (reported by them within the scope), used by
+  // both the productivity card and the AI effectiveness assessment.
+  const bugStatsByUid = new Map()
+  for (const b of scopedBugs) {
+    if (!b.reportedBy) continue
+    if (!bugStatsByUid.has(b.reportedBy)) {
+      bugStatsByUid.set(b.reportedBy, {
+        total: 0,
+        critical: 0,
+        high: 0,
+        fixed: 0,
+        backlogged: 0,
+      })
+    }
+    const s = bugStatsByUid.get(b.reportedBy)
+    s.total += 1
+    if (b.severity === 'Critical') s.critical += 1
+    else if (b.severity === 'High') s.high += 1
+    if (b.status === BUG_STATUS.FIXED || b.status === BUG_STATUS.CLOSED) s.fixed += 1
+    if (b.status === BUG_STATUS.REJECTED) s.backlogged += 1
+  }
+
   const testers = [...testerMap.values()]
-    .map((t) => ({
-      uid: t.uid,
-      name: t.name,
-      cases: t.cases,
-      passRate: t.cases ? Math.round((t.passed / t.cases) * 100) : 0,
-      avgSec: t.secs.length
-        ? Math.round(t.secs.reduce((a, b) => a + b, 0) / t.secs.length)
-        : 0,
-    }))
+    .map((t) => {
+      const bs = bugStatsByUid.get(t.uid) || {
+        total: 0,
+        critical: 0,
+        high: 0,
+        fixed: 0,
+        backlogged: 0,
+      }
+      const fixRate = bs.total ? Math.round((bs.fixed / bs.total) * 100) : 0
+      const backlogRate = bs.total ? Math.round((bs.backlogged / bs.total) * 100) : 0
+      return {
+        uid: t.uid,
+        name: t.name,
+        cases: t.cases,
+        passRate: t.cases ? Math.round((t.passed / t.cases) * 100) : 0,
+        avgSec: t.secs.length
+          ? Math.round(t.secs.reduce((a, b) => a + b, 0) / t.secs.length)
+          : 0,
+        bugsReported: bs.total,
+        bugsCritical: bs.critical,
+        bugsHigh: bs.high,
+        bugsFixed: bs.fixed,
+        bugsBacklogged: bs.backlogged,
+        bugFixRate: fixRate,
+        bugBacklogRate: backlogRate,
+      }
+    })
     .sort((a, b) => b.cases - a.cases)
 
   // Regression detection: a test case (matched by stable testId across

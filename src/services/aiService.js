@@ -170,6 +170,77 @@ export async function expandAllTestCases(testCases, onProgress = () => {}, batch
   return out
 }
 
+/**
+ * Ask Gemini to evaluate tester effectiveness from a payload of per-tester
+ * stats + team baselines. Returns an array of
+ *   { name, score, strengths[], weaknesses[], recommendation }
+ * one entry per tester. Throws on failure (let the caller toast).
+ *
+ * Caller responsibility: only send anonymized / project-scoped data; this
+ * helper makes no judgments about what's safe to send.
+ */
+export async function evaluateTesterEffectiveness({ testers, teamBaselines, projectName }) {
+  if (!apiKey()) throw new Error('Gemini API key not configured')
+  if (!testers?.length) throw new Error('No testers to evaluate')
+
+  const systemInstruction = `You are a QA team lead evaluating tester effectiveness from execution metrics. Score each tester 1-10 on overall effectiveness — be honest and discerning, not generous.
+
+Effectiveness factors (in order of weight):
+1. Bug-report quality: high % of reported bugs that get FIXED (not backlogged) signals real issues; high backlog % signals noise.
+2. Critical-bug detection: testers who find Critical / High severity bugs add disproportionate value.
+3. Volume: cases executed vs the team baseline. Way below = under-contributing; way above with bad pass-rate could mean rushing.
+4. Speed: avg minutes per case vs baseline. Much faster than baseline can be efficiency OR rushing — judge based on pass rate and bug yield.
+5. Pass-rate balance: ~80-95% is healthy. >95% may mean missing issues. <60% may signal flaky test cases or environment problems.
+
+Each tester gets:
+- score: integer 1-10
+- strengths: 1-2 short phrases (max 5 words each, no full sentences)
+- weaknesses: 1-2 short phrases (max 5 words each). Always provide at least one — every tester has room to improve. Be specific.
+- recommendation: ONE concrete action sentence (max 20 words).
+
+Respond in valid JSON only. No prose, no markdown fences.
+
+Schema:
+{
+  "evaluations": [
+    {
+      "name": "<tester name>",
+      "score": <1-10>,
+      "strengths": ["<phrase>", "<phrase>"],
+      "weaknesses": ["<phrase>"],
+      "recommendation": "<action>"
+    }
+  ]
+}`
+
+  const userPrompt = `Project: ${projectName || 'Unnamed'}
+
+Team baselines:
+${JSON.stringify(teamBaselines, null, 2)}
+
+Per-tester stats:
+${JSON.stringify(testers, null, 2)}
+
+Evaluate each tester. Return JSON only.`
+
+  const data = await callGemini({
+    systemInstruction: { parts: [{ text: systemInstruction }] },
+    contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+    generationConfig: {
+      temperature: 0.3,
+      maxOutputTokens: 1500,
+      responseMimeType: 'application/json',
+      thinkingConfig: { thinkingBudget: 0 },
+    },
+  })
+  const content = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
+  const parsed = safeParse(content)
+  if (!parsed?.evaluations || !Array.isArray(parsed.evaluations)) {
+    throw new Error('Gemini returned malformed evaluation')
+  }
+  return parsed.evaluations
+}
+
 function safeParse(str) {
   try {
     return JSON.parse(str)
