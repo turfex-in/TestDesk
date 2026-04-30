@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -10,6 +10,8 @@ import {
   Edit3,
   RotateCcw,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import {
   watchBug,
@@ -19,6 +21,7 @@ import {
   updateTestCase,
   getRound,
   addComment,
+  watchBugs,
 } from '../services/firebaseService'
 import { useAuth } from '../context/AuthContext.jsx'
 import { ROLES, BUG_STATUS, BUG_STATUS_LABEL, TESTCASE_STATUS } from '../utils/constants'
@@ -43,6 +46,9 @@ export default function BugDetailPage() {
   const [working, setWorking] = useState(false)
   const [confirmBacklog, setConfirmBacklog] = useState(false)
   const [backlogReason, setBacklogReason] = useState('')
+  // Project-wide bug list (newest-first) used to compute Prev/Next neighbors
+  // and to auto-advance after Fix / Backlog actions.
+  const [projectBugs, setProjectBugs] = useState([])
 
   useEffect(() => {
     const off = watchBug(bugId, setBug)
@@ -57,6 +63,42 @@ export default function BugDetailPage() {
     if (bug.assignedTo) getUser(bug.assignedTo).then(setAssignee)
   }, [bug])
 
+  useEffect(() => {
+    if (!bug?.projectId) return
+    const off = watchBugs({ projectId: bug.projectId, limitCount: 200 }, setProjectBugs)
+    return () => off && off()
+  }, [bug?.projectId])
+
+  const { prevBug, nextBug, position, total } = useMemo(() => {
+    if (!projectBugs.length || !bug) {
+      return { prevBug: null, nextBug: null, position: 0, total: 0 }
+    }
+    const idx = projectBugs.findIndex((b) => b.id === bug.id)
+    if (idx === -1) return { prevBug: null, nextBug: null, position: 0, total: projectBugs.length }
+    return {
+      prevBug: projectBugs[idx - 1] || null,
+      nextBug: projectBugs[idx + 1] || null,
+      position: idx + 1,
+      total: projectBugs.length,
+    }
+  }, [projectBugs, bug])
+
+  // After a terminal action (fix / backlog), jump to the next bug if there
+  // is one — otherwise go back to the list. Scoped to the active filter
+  // would be nicer, but project-wide order is good enough for the dev's
+  // batch-triage flow.
+  function advanceAfterAction() {
+    if (nextBug) {
+      navigate(`/bugs/${nextBug.id}`)
+    } else if (prevBug) {
+      // No "next" but a "prev" exists → step backwards instead of bouncing
+      // back to the list. Keeps the dev moving through the queue.
+      navigate(`/bugs/${prevBug.id}`)
+    } else {
+      navigate('/bugs')
+    }
+  }
+
   async function markAsFixed() {
     if (!bug || !testCase) return
     setWorking(true)
@@ -69,6 +111,7 @@ export default function BugDetailPage() {
         status: TESTCASE_STATUS.RETEST,
       })
       toast.success('Marked as fixed. Test case queued for retest.')
+      advanceAfterAction()
     } catch (err) {
       toast.error(err.message)
     } finally {
@@ -99,6 +142,7 @@ export default function BugDetailPage() {
       toast.success('Moved to backlog')
       setConfirmBacklog(false)
       setBacklogReason('')
+      advanceAfterAction()
     } catch (err) {
       toast.error(err.message)
     } finally {
@@ -150,8 +194,30 @@ export default function BugDetailPage() {
           </Link>
           <span className="text-ink-dim">|</span>
           <span className="font-mono text-primary font-semibold text-body-lg">{bug.bugId}</span>
+          {total > 0 && (
+            <span className="text-body-md text-ink-dim font-mono">
+              {position} of {total}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1">
+          <button
+            onClick={() => prevBug && navigate(`/bugs/${prevBug.id}`)}
+            disabled={!prevBug}
+            className="btn btn-sm btn-ghost"
+            title={prevBug ? `Prev · ${prevBug.bugId || prevBug.id.slice(0, 6)}` : 'No previous bug'}
+          >
+            <ChevronLeft size={14} /> Prev
+          </button>
+          <button
+            onClick={() => nextBug && navigate(`/bugs/${nextBug.id}`)}
+            disabled={!nextBug}
+            className="btn btn-sm btn-secondary"
+            title={nextBug ? `Next · ${nextBug.bugId || nextBug.id.slice(0, 6)}` : 'No next bug'}
+          >
+            Next <ChevronRight size={14} />
+          </button>
+          <span className="text-ink-dim mx-1">|</span>
           <button className="btn btn-sm btn-secondary">
             <Edit3 size={14} /> Edit
           </button>
