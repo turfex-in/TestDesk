@@ -209,6 +209,18 @@ export async function listTestCasesForRound(roundId) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
+export async function listTestCasesForProject(projectId) {
+  const q = query(collection(db, TD.testcases), where('projectId', '==', projectId))
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+export async function listBugsForProject(projectId) {
+  const q = query(collection(db, TD.bugs), where('projectId', '==', projectId))
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
 // Watch all test cases in a project filtered by status (passed / failed).
 // Used by the dev's "Passes" page to surface tester notes left on
 // successful runs. Requires the (projectId, status, executedAt desc)

@@ -12,6 +12,7 @@ import ExecutionPage from './pages/ExecutionPage.jsx'
 import BugsPage from './pages/BugsPage.jsx'
 import BugDetailPage from './pages/BugDetailPage.jsx'
 import PassesPage from './pages/PassesPage.jsx'
+import AnalyticsPage from './pages/AnalyticsPage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
 import SetupMissingEnv from './pages/SetupMissingEnv.jsx'
 
@@ -86,6 +87,14 @@ export default function App() {
           element={
             <ProtectedRoute roles={[ROLES.DEVELOPER]}>
               <PassesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/analytics"
+          element={
+            <ProtectedRoute roles={[ROLES.DEVELOPER]}>
+              <AnalyticsPage />
             </ProtectedRoute>
           }
         />
