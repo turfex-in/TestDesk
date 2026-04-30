@@ -5,7 +5,6 @@ function dotClass(tc, current) {
   if (current) return 'bg-primary ring-4 ring-primary/30 animate-pulse-ring'
   if (tc.status === TESTCASE_STATUS.PASSED) return 'bg-secondary'
   if (tc.status === TESTCASE_STATUS.FAILED) return 'bg-danger'
-  if (tc.status === TESTCASE_STATUS.SKIPPED) return 'bg-ink-dim'
   if (tc.isRetest) return 'bg-primary'
   if (tc.isCarryOver) return 'bg-tertiary'
   return 'bg-outline-variant'
@@ -54,7 +53,6 @@ export default function TestTimeline({ cases, currentId, onSelect, version }) {
 function statusLabel(tc) {
   if (tc.status === TESTCASE_STATUS.PASSED) return 'Passed'
   if (tc.status === TESTCASE_STATUS.FAILED) return 'Failed'
-  if (tc.status === TESTCASE_STATUS.SKIPPED) return 'Skipped'
   if (tc.isRetest) return 'Retest'
   if (tc.isCarryOver) return 'Carry-over'
   return tc.title || 'Upcoming'

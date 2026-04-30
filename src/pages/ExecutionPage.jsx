@@ -12,7 +12,6 @@ import {
   ArrowLeft,
   Play,
   SkipForward,
-  MinusCircle,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useProject } from '../context/ProjectContext.jsx'
@@ -98,8 +97,7 @@ export default function ExecutionPage() {
   const isComplete =
     !!current &&
     (current.status === TESTCASE_STATUS.PASSED ||
-      current.status === TESTCASE_STATUS.FAILED ||
-      current.status === TESTCASE_STATUS.SKIPPED)
+      current.status === TESTCASE_STATUS.FAILED)
 
   // Persist the in-flight timer to localStorage so a reload (or accidental
   // tab close) doesn't reset progress. Keyed per round+case so switching to a
@@ -170,26 +168,17 @@ export default function ExecutionPage() {
     setDrawerOpen(true)
   }
 
-  async function markSkip() {
+  // Skip leaves the case PENDING (or RETEST) — the tester can come back to
+  // it any time today, and if they don't, the carry-over pass on next mount
+  // will roll it into tomorrow's batch like any other untested case.
+  function markSkip() {
     if (!current || isComplete) return
-    const taken =
-      phase === 'running' && startedAt.current
-        ? Math.floor((Date.now() - startedAt.current) / 1000)
-        : 0
-    try {
-      await updateTestCase(current.id, {
-        status: TESTCASE_STATUS.SKIPPED,
-        executedAt: new Date(),
-        executedBy: profile.uid,
-        timeTakenSeconds: taken,
-      })
-      await incrementRoundCounts(roundId, { skipped: 1, pending: -1 })
-      if (sessionKey) localStorage.removeItem(sessionKey)
-      toast.success(`${current.testId} skipped`)
-      advance()
-    } catch (err) {
-      toast.error(err.message)
-    }
+    if (sessionKey) localStorage.removeItem(sessionKey)
+    setPhase('idle')
+    setElapsed(0)
+    setNote('')
+    toast(`${current.testId} skipped — back to it later`)
+    advance()
   }
 
   async function onBugSubmitted() {
@@ -302,26 +291,18 @@ export default function ExecutionPage() {
                         'flex-1 h-14 px-4 rounded border flex items-center gap-3',
                         current.status === TESTCASE_STATUS.PASSED
                           ? 'border-secondary/50 bg-secondary-container/15 text-secondary'
-                          : current.status === TESTCASE_STATUS.FAILED
-                          ? 'border-danger/50 bg-danger-container/15 text-danger'
-                          : 'border-outline-variant/60 bg-surface-low text-ink-muted',
+                          : 'border-danger/50 bg-danger-container/15 text-danger',
                       ].join(' ')}
                     >
                       {current.status === TESTCASE_STATUS.PASSED ? (
                         <CheckCircle2 size={18} />
-                      ) : current.status === TESTCASE_STATUS.FAILED ? (
-                        <XCircle size={18} />
                       ) : (
-                        <MinusCircle size={18} />
+                        <XCircle size={18} />
                       )}
                       <span className="text-[15px] font-semibold uppercase tracking-wide">
-                        {current.status === TESTCASE_STATUS.PASSED
-                          ? 'Passed'
-                          : current.status === TESTCASE_STATUS.FAILED
-                          ? 'Failed'
-                          : 'Skipped'}
+                        {current.status === TESTCASE_STATUS.PASSED ? 'Passed' : 'Failed'}
                       </span>
-                      {Number.isFinite(current.timeTakenSeconds) && current.timeTakenSeconds > 0 && (
+                      {Number.isFinite(current.timeTakenSeconds) && (
                         <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-body-md text-ink-muted">
                           <Clock size={14} />
                           {fmtTime(current.timeTakenSeconds)}

@@ -33,7 +33,6 @@ export const TESTCASE_STATUS = {
   PASSED: 'passed',
   FAILED: 'failed',
   RETEST: 'retest',
-  SKIPPED: 'skipped',
 }
 
 export const BUG_STATUS = {

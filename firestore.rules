@@ -41,11 +41,11 @@ service cloud.firestore {
     match /td_rounds/{rid} {
       allow read: if isSignedIn();
       allow create, update, delete: if isDeveloper();
-      // Testers may update pass/fail/skip counts on rounds they're assigned to.
+      // Testers may update pass/fail counts on rounds they're assigned to.
       allow update: if isTester()
         && resource.data.assignedTo == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['passed','failed','pending','skipped']);
+             .hasOnly(['passed','failed','pending']);
     }
 
     match /td_testcases/{tid} {
