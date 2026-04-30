@@ -60,6 +60,14 @@ export default function ExecutionPage() {
     ;(async () => {
       try {
         const all = await listTestCasesForRound(roundId)
+        // Heal: an earlier build wrote status='skipped' as a terminal status.
+        // Skip is now a non-mutating "do later" action; revert any stuck-
+        // skipped cases so testers can re-open them.
+        for (const tc of all) {
+          if (tc.status === 'skipped') {
+            await updateTestCase(tc.id, { status: TESTCASE_STATUS.PENDING })
+          }
+        }
         const patches = computeCarryOvers(all, isoDate())
         for (const p of patches) {
           const { id, ...rest } = p
