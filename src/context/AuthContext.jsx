@@ -21,11 +21,38 @@ import { TD, ROLES } from '../utils/constants'
 
 const AuthContext = createContext(null)
 
+// Up to N remembered profiles for the account-switcher dropdown. Stored as
+// just metadata (email + name + role) — never passwords. Used to populate
+// "Switch profile" so the dev/tester can flip between accounts on the same
+// browser without retyping the email each time.
+const REMEMBERED_KEY = 'td_remembered_profiles'
+const REMEMBERED_LIMIT = 5
+
+function loadRemembered() {
+  try {
+    const raw = localStorage.getItem(REMEMBERED_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.filter((p) => p && p.email) : []
+  } catch {
+    return []
+  }
+}
+
+function saveRemembered(list) {
+  try {
+    localStorage.setItem(REMEMBERED_KEY, JSON.stringify(list.slice(0, REMEMBERED_LIMIT)))
+  } catch {
+    // storage full / disabled — silently ignore
+  }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [needsFirstTimeSetup, setNeedsFirstTimeSetup] = useState(false)
+  const [rememberedProfiles, setRememberedProfiles] = useState(loadRemembered)
 
   useEffect(() => {
     if (!firebaseReady) {
@@ -37,7 +64,9 @@ export function AuthProvider({ children }) {
         setUser(fbUser)
         const snap = await getDoc(doc(db, TD.users, fbUser.uid))
         if (snap.exists()) {
-          setProfile({ uid: fbUser.uid, ...snap.data() })
+          const p = { uid: fbUser.uid, ...snap.data() }
+          setProfile(p)
+          rememberProfile(p)
         } else {
           setProfile(null)
         }
@@ -57,6 +86,29 @@ export function AuthProvider({ children }) {
     })
     return () => unsub()
   }, [])
+
+  // Remember a profile in the switcher list. Dedupes by email (case-insensitive)
+  // and pushes the most recent to the front.
+  function rememberProfile(p) {
+    if (!p?.email) return
+    setRememberedProfiles((curr) => {
+      const email = p.email.toLowerCase()
+      const next = [
+        { email: p.email, name: p.name || '', role: p.role || '' },
+        ...curr.filter((x) => x.email.toLowerCase() !== email),
+      ].slice(0, REMEMBERED_LIMIT)
+      saveRemembered(next)
+      return next
+    })
+  }
+
+  function forgetProfile(email) {
+    setRememberedProfiles((curr) => {
+      const next = curr.filter((x) => x.email.toLowerCase() !== email.toLowerCase())
+      saveRemembered(next)
+      return next
+    })
+  }
 
   async function login(email, password) {
     await signInWithEmailAndPassword(auth, email, password)
@@ -91,8 +143,10 @@ export function AuthProvider({ children }) {
       login,
       logout,
       createFirstDeveloper,
+      rememberedProfiles,
+      forgetProfile,
     }),
-    [user, profile, loading, needsFirstTimeSetup]
+    [user, profile, loading, needsFirstTimeSetup, rememberedProfiles]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
