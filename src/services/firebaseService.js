@@ -209,6 +209,25 @@ export async function listTestCasesForRound(roundId) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
+// Watch all test cases in a project filtered by status (passed / failed).
+// Used by the dev's "Passes" page to surface tester notes left on
+// successful runs. Requires the (projectId, status, executedAt desc)
+// composite index in firestore.indexes.json.
+export function watchTestCasesByProjectStatus({ projectId, status, limitCount = 200 }, cb) {
+  const q = query(
+    collection(db, TD.testcases),
+    where('projectId', '==', projectId),
+    where('status', '==', status),
+    orderBy('executedAt', 'desc'),
+    limit(limitCount)
+  )
+  return onSnapshot(
+    q,
+    (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    snapshotError('watchTestCasesByProjectStatus')
+  )
+}
+
 export async function listTestCasesForBatch(roundId, batchDate) {
   const q = query(
     collection(db, TD.testcases),

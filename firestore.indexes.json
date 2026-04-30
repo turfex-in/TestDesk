@@ -17,6 +17,15 @@
       ]
     },
     {
+      "collectionGroup": "td_testcases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "projectId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "executedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "td_bugs",
       "queryScope": "COLLECTION",
       "fields": [
