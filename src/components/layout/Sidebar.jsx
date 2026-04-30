@@ -8,6 +8,7 @@ import {
   PlayCircle,
   CheckCircle2,
   Archive,
+  ThumbsUp,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { ROLES } from '../../utils/constants'
@@ -20,6 +21,7 @@ const DEV_NAV = [
   { to: '/bugs', label: 'Bugs', icon: Bug },
   { to: '/bugs/fixed', label: 'Fixed', icon: CheckCircle2 },
   { to: '/bugs/backlog', label: 'Backlog', icon: Archive },
+  { to: '/passes', label: 'Passes', icon: ThumbsUp },
   { to: '/settings', label: 'Settings', icon: Settings, footer: true },
 ]
 

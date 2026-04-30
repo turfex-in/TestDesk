@@ -11,6 +11,7 @@ import CreateRoundPage from './pages/CreateRoundPage.jsx'
 import ExecutionPage from './pages/ExecutionPage.jsx'
 import BugsPage from './pages/BugsPage.jsx'
 import BugDetailPage from './pages/BugDetailPage.jsx'
+import PassesPage from './pages/PassesPage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
 import SetupMissingEnv from './pages/SetupMissingEnv.jsx'
 
@@ -80,6 +81,14 @@ export default function App() {
         <Route path="/bugs/fixed" element={<BugsPage defaultFilter="fixed" pageTitle="Fixed" pageDescription="Bugs the developer has fixed and queued for retest." />} />
         <Route path="/bugs/backlog" element={<BugsPage defaultFilter="rejected" pageTitle="Backlog" pageDescription="Bugs deferred — no fix or retest planned. Reopen if priorities change." />} />
         <Route path="/bugs/:bugId" element={<BugDetailPage />} />
+        <Route
+          path="/passes"
+          element={
+            <ProtectedRoute roles={[ROLES.DEVELOPER]}>
+              <PassesPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/settings"
           element={
