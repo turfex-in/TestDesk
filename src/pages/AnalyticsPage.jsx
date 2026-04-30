@@ -685,30 +685,39 @@ function TesterEvaluation({ evaluation }) {
           {score}
         </div>
       </div>
-      {evaluation.strengths?.length > 0 && (
-        <div className="mb-2">
-          <div className="text-[10px] uppercase tracking-wider text-ink-dim mb-1">Strengths</div>
-          <div className="flex flex-wrap gap-1.5">
-            {evaluation.strengths.map((s, i) => (
-              <Badge key={i} tone="secondary" size="sm" uppercase={false}>
-                {s}
-              </Badge>
-            ))}
-          </div>
+
+      {evaluation.summary && (
+        <p className="text-body-md text-ink mb-3 leading-relaxed">{evaluation.summary}</p>
+      )}
+
+      {evaluation.timing_insight && (
+        <div className="flex items-start gap-2 mb-2 text-body-md text-ink-muted">
+          <Clock size={14} className="text-primary mt-0.5 shrink-0" />
+          <span>{evaluation.timing_insight}</span>
         </div>
       )}
-      {evaluation.weaknesses?.length > 0 && (
-        <div className="mb-2">
-          <div className="text-[10px] uppercase tracking-wider text-ink-dim mb-1">Weaknesses</div>
-          <div className="flex flex-wrap gap-1.5">
-            {evaluation.weaknesses.map((w, i) => (
-              <Badge key={i} tone="danger" size="sm" uppercase={false}>
-                {w}
-              </Badge>
-            ))}
-          </div>
+      {evaluation.bug_quality_insight && (
+        <div className="flex items-start gap-2 mb-3 text-body-md text-ink-muted">
+          <Bug size={14} className="text-tertiary mt-0.5 shrink-0" />
+          <span>{evaluation.bug_quality_insight}</span>
         </div>
       )}
+
+      {(evaluation.strengths?.length > 0 || evaluation.weaknesses?.length > 0) && (
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {(evaluation.strengths || []).map((s, i) => (
+            <Badge key={`s-${i}`} tone="secondary" size="sm" uppercase={false}>
+              + {s}
+            </Badge>
+          ))}
+          {(evaluation.weaknesses || []).map((w, i) => (
+            <Badge key={`w-${i}`} tone="danger" size="sm" uppercase={false}>
+              − {w}
+            </Badge>
+          ))}
+        </div>
+      )}
+
       {evaluation.recommendation && (
         <div className="mt-3 pt-3 border-t border-outline-variant/30 text-body-md text-ink">
           <span className="text-[10px] uppercase tracking-wider text-ink-dim mr-2">

@@ -183,22 +183,25 @@ export async function evaluateTesterEffectiveness({ testers, teamBaselines, proj
   if (!apiKey()) throw new Error('Gemini API key not configured')
   if (!testers?.length) throw new Error('No testers to evaluate')
 
-  const systemInstruction = `You are a QA team lead evaluating tester effectiveness from real execution metrics, engagement data, and actual bug-report samples. Score each tester 1-10 on overall effectiveness — be honest and discerning, not generous.
+  const systemInstruction = `You are a QA team lead writing a private effectiveness review for each tester from real execution metrics, engagement data, and the actual text of their recent bug reports. Score 1-10. Be honest and specific — generic feedback is useless.
 
 Effectiveness factors (in order of weight):
-1. Bug-report SUBSTANCE: Read each tester's sample_bugs descriptions. Are they specific (steps, observed behaviour, environment) or terse ("not working", "broken", one line)? avg_description_length and screenshot_attach_rate_pct corroborate. A tester who files few but well-written bugs beats one filing many one-liners.
-2. Bug-report quality (outcome): bug_fix_rate_pct vs bug_backlog_rate_pct. High fix-rate = signal; high backlog-rate = noise.
-3. Critical-bug detection: bugs_critical and bugs_high count more than total volume — finding sev-1 issues is the whole job.
-4. Engagement: active_days and total_active_minutes vs the team baseline. A tester logging in occasionally and rage-clicking through cases is less effective than one with steady daily presence.
-5. Volume: cases_executed vs team baseline. Way below = under-contributing; high volume with terse bugs and high backlog rate = farming numbers.
-6. Speed: avg_seconds_per_case vs baseline. Much faster than baseline + low pass-rate or terse bugs = rushing. Faster + healthy pass-rate + good bugs = efficient.
-7. Pass-rate balance: 75-95% is healthy. >95% with no bug detail may mean rubber-stamping. <60% may signal flaky cases or env problems.
+1. Bug-report SUBSTANCE — read each tester's sample_bugs. Are they specific (clear steps, observed behaviour, environment) or terse ("not working", "broken")? avg_description_length_chars and screenshot_attach_rate_pct corroborate. A tester filing few well-written bugs beats one filing many one-liners.
+2. Bug-report quality (outcome) — bug_fix_rate_pct vs bug_backlog_rate_pct. High fix-rate = real signal; high backlog-rate = noise.
+3. Critical-bug detection — bugs_critical and bugs_high count more than total volume.
+4. TestDesk engagement — active_days and total_active_minutes vs team. Steady daily presence > sporadic drive-bys.
+5. Volume — cases_executed vs team baseline.
+6. Run speed — avg_seconds_per_case vs baseline. Much faster + low pass-rate or terse bugs = rushing. Fast + healthy pass-rate + detailed bugs = efficient.
+7. Pass-rate balance — 75-95% healthy. >95% with no bug detail = rubber-stamping. <60% = flaky cases or env problems.
 
-Each tester gets:
-- score: integer 1-10. Calibrate: 9-10 reserved for clear leaders across multiple factors. 5-6 = average. 1-3 = real concern.
-- strengths: 1-2 short phrases (max 5 words each, no full sentences). Be specific — reference what the data actually shows. Skip if no genuine strength.
-- weaknesses: 1-2 short phrases (max 5 words each). Always at least one. Be specific (e.g. "terse bug descriptions", "rushes through cases", "low active days").
-- recommendation: ONE concrete action sentence (max 20 words). Not generic — directly addressable from the metrics.
+For EACH tester, produce:
+- score: integer 1-10. Calibrate ruthlessly. 9-10 = clear leaders across multiple factors. 7-8 = solid contributors. 5-6 = average with gaps. 3-4 = significant concerns. 1-2 = not effective.
+- summary: TWO sentences. The first reads like a one-line verdict ("Steady but rushes the documentation."). The second cites two or three SPECIFIC numbers from the metrics (e.g. "Logged 2h 14m across 4 active days, averaged 21s per test, but only 38 chars per bug description on average."). Use the numbers verbatim from the input — don't make any up.
+- timing_insight: ONE sentence specifically about engagement and run speed. Cite total_active_minutes (format as Xh Ym), active_days, avg_seconds_per_case, and how those compare to the team baseline. Example: "Spent 1h 47m on TestDesk over 3 days (team avg 2h 30m / 4 days) and runs each case in 18s vs team 25s — fast and present, slightly under-engaged."
+- bug_quality_insight: ONE sentence specifically about the prose quality of their bugs, citing avg_description_length_chars, screenshot_attach_rate_pct, and characterizing the sample_bugs you read. Example: "Bug reports average 142 chars with 80% screenshots — sample bugs read as structured walkthroughs with environment notes." Or: "Bugs average 24 chars and 0% screenshots — most read like 'doesn't work' with no repro context."
+- strengths: 1-2 short chip-style phrases (max 6 words). May be empty if no real strengths.
+- weaknesses: 1-2 short chip-style phrases (max 6 words). Always provide at least one — every tester has gaps.
+- recommendation: ONE concrete action sentence (max 25 words). Reference the specific weakness it addresses.
 
 Respond in valid JSON only. No prose, no markdown fences.
 
@@ -208,7 +211,10 @@ Schema:
     {
       "name": "<tester name>",
       "score": <1-10>,
-      "strengths": ["<phrase>", "<phrase>"],
+      "summary": "<2 sentences>",
+      "timing_insight": "<1 sentence>",
+      "bug_quality_insight": "<1 sentence>",
+      "strengths": ["<phrase>"],
       "weaknesses": ["<phrase>"],
       "recommendation": "<action>"
     }
@@ -230,9 +236,9 @@ Evaluate each tester. Return JSON only.`
     contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
     generationConfig: {
       temperature: 0.3,
-      // 2500 leaves room for a richer prompt (sample bugs, engagement
-      // stats) plus structured output for ~10 testers.
-      maxOutputTokens: 2500,
+      // 4500 covers the longer schema (summary + two insight sentences)
+      // for ~10 testers' worth of structured output.
+      maxOutputTokens: 4500,
       responseMimeType: 'application/json',
       thinkingConfig: { thinkingBudget: 0 },
     },
