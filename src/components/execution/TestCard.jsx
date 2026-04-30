@@ -105,6 +105,15 @@ export default function TestCard({ tc, linkedBug }) {
         <ExpectedResult text={tc.expectedResult} />
       </section>
 
+      {tc.testerNotes && (
+        <section className="mt-4 border border-secondary/30 bg-secondary-container/10 rounded-md p-4">
+          <div className="flex items-center gap-2 text-secondary label-sm mb-1.5">
+            <Info size={14} /> Tester note
+          </div>
+          <p className="text-body-md text-ink whitespace-pre-wrap">{tc.testerNotes}</p>
+        </section>
+      )}
+
       {tc.remarks && (
         <section className="mt-4 text-body-md text-ink-dim italic">
           Note: {tc.remarks}

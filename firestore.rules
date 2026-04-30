@@ -41,11 +41,11 @@ service cloud.firestore {
     match /td_rounds/{rid} {
       allow read: if isSignedIn();
       allow create, update, delete: if isDeveloper();
-      // Testers may update pass/fail counts on rounds they're assigned to.
+      // Testers may update pass/fail/skip counts on rounds they're assigned to.
       allow update: if isTester()
         && resource.data.assignedTo == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['passed','failed','pending']);
+             .hasOnly(['passed','failed','pending','skipped']);
     }
 
     match /td_testcases/{tid} {
@@ -58,7 +58,7 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/td_rounds/$(resource.data.roundId))
         && get(/databases/$(database)/documents/td_rounds/$(resource.data.roundId)).data.assignedTo == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['status','executedAt','executedBy','updatedAt','batchDate','isCarryOver','isRetest','roundResults','timeTakenSeconds']);
+             .hasOnly(['status','executedAt','executedBy','updatedAt','batchDate','isCarryOver','isRetest','roundResults','timeTakenSeconds','testerNotes']);
     }
 
     match /td_bugs/{bid} {

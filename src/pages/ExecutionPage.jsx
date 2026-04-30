@@ -11,6 +11,8 @@ import {
   HelpCircle,
   ArrowLeft,
   Play,
+  SkipForward,
+  MinusCircle,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useProject } from '../context/ProjectContext.jsx'
@@ -41,6 +43,7 @@ export default function ExecutionPage() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const [phase, setPhase] = useState('idle') // 'idle' | 'running'
+  const [note, setNote] = useState('')
   const startedAt = useRef(null)
 
   useEffect(() => {
@@ -95,7 +98,8 @@ export default function ExecutionPage() {
   const isComplete =
     !!current &&
     (current.status === TESTCASE_STATUS.PASSED ||
-      current.status === TESTCASE_STATUS.FAILED)
+      current.status === TESTCASE_STATUS.FAILED ||
+      current.status === TESTCASE_STATUS.SKIPPED)
 
   // Persist the in-flight timer to localStorage so a reload (or accidental
   // tab close) doesn't reset progress. Keyed per round+case so switching to a
@@ -107,6 +111,7 @@ export default function ExecutionPage() {
     if (!current) return
     setPhase('idle')
     setElapsed(0)
+    setNote('')
     // Don't restore a running session for an already-completed case.
     if (isComplete) return
     const key = `td_run_${roundId}_${current.id}`
@@ -142,12 +147,14 @@ export default function ExecutionPage() {
   async function markPass() {
     if (!current || phase !== 'running') return
     const taken = Math.floor((Date.now() - startedAt.current) / 1000)
+    const trimmedNote = note.trim()
     try {
       await updateTestCase(current.id, {
         status: TESTCASE_STATUS.PASSED,
         executedAt: new Date(),
         executedBy: profile.uid,
         timeTakenSeconds: taken,
+        testerNotes: trimmedNote || null,
       })
       await incrementRoundCounts(roundId, { passed: 1, pending: -1 })
       if (sessionKey) localStorage.removeItem(sessionKey)
@@ -161,6 +168,28 @@ export default function ExecutionPage() {
   function startFail() {
     if (!current || phase !== 'running') return
     setDrawerOpen(true)
+  }
+
+  async function markSkip() {
+    if (!current || isComplete) return
+    const taken =
+      phase === 'running' && startedAt.current
+        ? Math.floor((Date.now() - startedAt.current) / 1000)
+        : 0
+    try {
+      await updateTestCase(current.id, {
+        status: TESTCASE_STATUS.SKIPPED,
+        executedAt: new Date(),
+        executedBy: profile.uid,
+        timeTakenSeconds: taken,
+      })
+      await incrementRoundCounts(roundId, { skipped: 1, pending: -1 })
+      if (sessionKey) localStorage.removeItem(sessionKey)
+      toast.success(`${current.testId} skipped`)
+      advance()
+    } catch (err) {
+      toast.error(err.message)
+    }
   }
 
   async function onBugSubmitted() {
@@ -273,18 +302,26 @@ export default function ExecutionPage() {
                         'flex-1 h-14 px-4 rounded border flex items-center gap-3',
                         current.status === TESTCASE_STATUS.PASSED
                           ? 'border-secondary/50 bg-secondary-container/15 text-secondary'
-                          : 'border-danger/50 bg-danger-container/15 text-danger',
+                          : current.status === TESTCASE_STATUS.FAILED
+                          ? 'border-danger/50 bg-danger-container/15 text-danger'
+                          : 'border-outline-variant/60 bg-surface-low text-ink-muted',
                       ].join(' ')}
                     >
                       {current.status === TESTCASE_STATUS.PASSED ? (
                         <CheckCircle2 size={18} />
-                      ) : (
+                      ) : current.status === TESTCASE_STATUS.FAILED ? (
                         <XCircle size={18} />
+                      ) : (
+                        <MinusCircle size={18} />
                       )}
                       <span className="text-[15px] font-semibold uppercase tracking-wide">
-                        {current.status === TESTCASE_STATUS.PASSED ? 'Passed' : 'Failed'}
+                        {current.status === TESTCASE_STATUS.PASSED
+                          ? 'Passed'
+                          : current.status === TESTCASE_STATUS.FAILED
+                          ? 'Failed'
+                          : 'Skipped'}
                       </span>
-                      {Number.isFinite(current.timeTakenSeconds) && (
+                      {Number.isFinite(current.timeTakenSeconds) && current.timeTakenSeconds > 0 && (
                         <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-body-md text-ink-muted">
                           <Clock size={14} />
                           {fmtTime(current.timeTakenSeconds)}
@@ -299,26 +336,49 @@ export default function ExecutionPage() {
                     </button>
                   </div>
                 ) : phase === 'idle' ? (
-                  <button
-                    onClick={handleStart}
-                    className="btn w-full h-14 text-[16px] font-semibold bg-primary-container hover:brightness-110 text-white rounded"
-                  >
-                    <Play size={20} /> START TEST
-                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleStart}
+                      className="btn flex-1 h-14 text-[16px] font-semibold bg-primary-container hover:brightness-110 text-white rounded"
+                    >
+                      <Play size={20} /> START TEST
+                    </button>
+                    <button
+                      onClick={markSkip}
+                      className="btn h-14 px-5 text-[14px] font-semibold border border-outline-variant/60 text-ink-muted hover:text-ink hover:border-tertiary/60 hover:bg-tertiary/10 rounded"
+                    >
+                      <SkipForward size={16} /> Skip
+                    </button>
+                  </div>
                 ) : (
-                  <div className="flex gap-4">
-                    <button
-                      onClick={markPass}
-                      className="btn flex-1 h-14 text-[16px] font-semibold bg-secondary-container hover:brightness-110 text-white rounded"
-                    >
-                      <CheckCircle2 size={20} /> PASS
-                    </button>
-                    <button
-                      onClick={startFail}
-                      className="btn flex-1 h-14 text-[16px] font-semibold bg-danger-container hover:brightness-110 text-white rounded"
-                    >
-                      <XCircle size={20} /> FAIL
-                    </button>
+                  <div className="space-y-3">
+                    <textarea
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      placeholder="Notes for this PASS — optional (e.g. tested only on Pixel 8, slow network)"
+                      rows={1}
+                      className="input w-full min-h-[40px] resize-y text-body-md"
+                    />
+                    <div className="flex gap-3">
+                      <button
+                        onClick={markPass}
+                        className="btn flex-1 h-14 text-[16px] font-semibold bg-secondary-container hover:brightness-110 text-white rounded"
+                      >
+                        <CheckCircle2 size={20} /> PASS
+                      </button>
+                      <button
+                        onClick={startFail}
+                        className="btn flex-1 h-14 text-[16px] font-semibold bg-danger-container hover:brightness-110 text-white rounded"
+                      >
+                        <XCircle size={20} /> FAIL
+                      </button>
+                      <button
+                        onClick={markSkip}
+                        className="btn h-14 px-5 text-[14px] font-semibold border border-outline-variant/60 text-ink-muted hover:text-ink hover:border-tertiary/60 hover:bg-tertiary/10 rounded"
+                      >
+                        <SkipForward size={16} /> Skip
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

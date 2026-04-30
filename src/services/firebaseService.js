@@ -172,11 +172,12 @@ export async function deleteRoundCascade(roundId) {
   }
 }
 
-export async function incrementRoundCounts(roundId, { passed = 0, failed = 0, pending = 0 } = {}) {
+export async function incrementRoundCounts(roundId, { passed = 0, failed = 0, pending = 0, skipped = 0 } = {}) {
   const patch = {}
   if (passed) patch.passed = increment(passed)
   if (failed) patch.failed = increment(failed)
   if (pending) patch.pending = increment(pending)
+  if (skipped) patch.skipped = increment(skipped)
   if (Object.keys(patch).length) await updateDoc(doc(db, TD.rounds, roundId), patch)
 }
 
