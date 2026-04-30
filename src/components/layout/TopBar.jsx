@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, HelpCircle, ChevronDown, FolderPlus, Check, LogOut, UserPlus, X } from 'lucide-react'
+import { Search, HelpCircle, ChevronDown, FolderPlus, Check, LogOut, UserPlus, X, KeyRound, Zap } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useProject } from '../../context/ProjectContext.jsx'
 import { ROLES } from '../../utils/constants'
@@ -15,6 +15,7 @@ export default function TopBar() {
     rememberedProfiles = [],
     forgetProfile,
     switchToProfile,
+    hasCredentialFor,
   } = useAuth()
   const isDev = profile?.role === ROLES.DEVELOPER
   const { projects, selected, select, createNew } = useProject()
@@ -176,7 +177,9 @@ export default function TopBar() {
                     <div className="px-3 py-1 text-[11px] uppercase tracking-wider text-ink-dim">
                       Switch profile
                     </div>
-                    {others.map((p) => (
+                    {others.map((p) => {
+                      const cached = hasCredentialFor?.(p.email)
+                      return (
                       <div
                         key={p.email}
                         className="group flex items-center gap-2 px-3 py-2 rounded hover:bg-surface-high"
@@ -209,8 +212,25 @@ export default function TopBar() {
                             {(p.name || p.email).split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
                           </span>
                           <span className="min-w-0 flex-1">
-                            <span className="block font-medium truncate">{p.name || p.email}</span>
-                            <span className="block text-[11px] text-ink-dim truncate">{p.email}</span>
+                            <span className="font-medium truncate flex items-center gap-1.5">
+                              {p.name || p.email}
+                              {cached ? (
+                                <Zap
+                                  size={11}
+                                  className="text-secondary shrink-0"
+                                  aria-label="Quick switch"
+                                />
+                              ) : (
+                                <KeyRound
+                                  size={11}
+                                  className="text-ink-dim shrink-0"
+                                  aria-label="Will ask for password"
+                                />
+                              )}
+                            </span>
+                            <span className="block text-[11px] text-ink-dim truncate">
+                              {cached ? p.email : `${p.email} · password needed once`}
+                            </span>
                           </span>
                         </button>
                         <button
@@ -221,7 +241,8 @@ export default function TopBar() {
                           <X size={12} />
                         </button>
                       </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )
               })()}
