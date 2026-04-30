@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   BarChart3,
   CheckCircle2,
@@ -8,6 +9,8 @@ import {
   Wrench,
   TrendingUp,
   AlertTriangle,
+  History,
+  Hourglass,
 } from 'lucide-react'
 import { useProject } from '../context/ProjectContext.jsx'
 import {
@@ -63,7 +66,10 @@ export default function AnalyticsPage() {
     }
   }, [selected?.id])
 
-  const stats = useMemo(() => computeStats(cases, bugs, users), [cases, bugs, users])
+  const stats = useMemo(
+    () => computeStats(cases, bugs, users, rounds),
+    [cases, bugs, users, rounds]
+  )
 
   if (!selected) {
     return (
@@ -326,11 +332,132 @@ export default function AnalyticsPage() {
           )}
         </Card>
       </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <Card
+          title="Regressions"
+          subtitle="Cases that passed in an earlier round and failed in a later one. The signal you actually want — what broke since last time."
+          icon={History}
+        >
+          {stats.regressions.length === 0 ? (
+            <Empty
+              text={
+                stats.recoveries.length > 0
+                  ? `No regressions. ${stats.recoveries.length} case(s) recovered (failed → passed) since the previous round.`
+                  : 'No regressions yet — needs at least two rounds with overlapping test IDs to detect anything.'
+              }
+            />
+          ) : (
+            <>
+              <div className="mb-3 text-body-md text-ink-muted">
+                <span className="font-semibold text-danger">{stats.regressions.length}</span>{' '}
+                regression{stats.regressions.length === 1 ? '' : 's'} detected
+                {stats.recoveries.length > 0 && (
+                  <span className="text-ink-dim">
+                    {' '}· {stats.recoveries.length} recovered
+                  </span>
+                )}
+              </div>
+              <ul className="space-y-2 max-h-[320px] overflow-y-auto">
+                {stats.regressions.slice(0, 12).map((r, i) => (
+                  <li
+                    key={`${r.testId}-${i}`}
+                    className="border border-danger/30 bg-danger-container/5 rounded-md px-3 py-2"
+                  >
+                    <Link
+                      to={`/rounds/${r.roundId}?testId=${encodeURIComponent(r.testId)}`}
+                      className="block hover:opacity-80"
+                    >
+                      <div className="flex items-baseline gap-2 mb-0.5">
+                        <span className="font-mono text-[12px] text-primary">{r.testId}</span>
+                        <span className="truncate text-body-md flex-1">{r.title}</span>
+                      </div>
+                      <div className="text-[11px] text-ink-dim">
+                        Passed in{' '}
+                        <span className="text-secondary">
+                          {r.fromRound?.name || `Round ${r.fromRound?.roundNumber || '?'}`}
+                        </span>
+                        {' → '}
+                        Failed in{' '}
+                        <span className="text-danger">
+                          {r.toRound?.name || `Round ${r.toRound?.roundNumber || '?'}`}
+                        </span>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+                {stats.regressions.length > 12 && (
+                  <li className="text-[12px] text-ink-dim text-center pt-1">
+                    +{stats.regressions.length - 12} more
+                  </li>
+                )}
+              </ul>
+            </>
+          )}
+        </Card>
+
+        <Card
+          title="Oldest open bugs"
+          subtitle="Bugs sitting in your queue the longest. Triage debt — close, fix, or backlog."
+          icon={Hourglass}
+        >
+          {stats.openBugsAged.length === 0 ? (
+            <Empty text="No open bugs. Nice." />
+          ) : (
+            <ul className="space-y-2 max-h-[320px] overflow-y-auto">
+              {stats.openBugsAged.map(({ bug, ageDays }) => (
+                <li
+                  key={bug.id}
+                  className="border border-outline-variant/40 rounded-md px-3 py-2 hover:bg-surface-high/30"
+                >
+                  <Link to={`/bugs/${bug.id}`} className="block">
+                    <div className="flex items-baseline gap-2 mb-0.5">
+                      <span className="font-mono text-[12px] text-primary">
+                        {bug.bugId || bug.id.slice(0, 6)}
+                      </span>
+                      <span className="truncate text-body-md flex-1">{bug.title}</span>
+                      <span
+                        className={[
+                          'font-mono text-[12px] shrink-0',
+                          ageDays >= 14
+                            ? 'text-danger'
+                            : ageDays >= 7
+                            ? 'text-tertiary'
+                            : 'text-ink-muted',
+                        ].join(' ')}
+                      >
+                        {ageDays}d
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-ink-dim flex items-center gap-2">
+                      <Badge
+                        tone={
+                          bug.severity === 'Critical'
+                            ? 'danger'
+                            : bug.severity === 'High'
+                            ? 'tertiary'
+                            : bug.severity === 'Medium'
+                            ? 'primary'
+                            : 'secondary'
+                        }
+                        size="sm"
+                      >
+                        {bug.severity}
+                      </Badge>
+                      <span>{BUG_STATUS_LABEL[bug.status] || bug.status}</span>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
     </div>
   )
 }
 
-function computeStats(cases, bugs, users) {
+function computeStats(cases, bugs, users, rounds = []) {
   const passed = cases.filter((c) => c.status === TESTCASE_STATUS.PASSED).length
   const failed = cases.filter((c) => c.status === TESTCASE_STATUS.FAILED).length
   const retest = cases.filter((c) => c.status === TESTCASE_STATUS.RETEST).length
@@ -430,6 +557,89 @@ function computeStats(cases, bugs, users) {
     }))
     .sort((a, b) => b.cases - a.cases)
 
+  // Regression detection: a test case (matched by stable testId across
+  // rounds) that PASSED in an earlier round and then FAILED in a later one.
+  // Recoveries (FAILED → PASSED) are also tracked but separately, so the
+  // dev can see "fixed since" alongside "broke since".
+  const roundOrder = new Map()
+  const sortedRounds = [...rounds].sort(
+    (a, b) => (toMillis(a.createdAt) || 0) - (toMillis(b.createdAt) || 0)
+  )
+  sortedRounds.forEach((r, i) => roundOrder.set(r.id, { index: i, round: r }))
+
+  const byTestId = new Map()
+  for (const c of cases) {
+    if (!c.testId) continue
+    if (c.status !== TESTCASE_STATUS.PASSED && c.status !== TESTCASE_STATUS.FAILED) continue
+    if (!byTestId.has(c.testId)) byTestId.set(c.testId, [])
+    byTestId.get(c.testId).push(c)
+  }
+
+  const regressions = []
+  const recoveries = []
+  for (const [testId, executions] of byTestId) {
+    if (executions.length < 2) continue
+    executions.sort(
+      (a, b) =>
+        (roundOrder.get(a.roundId)?.index ?? -1) -
+        (roundOrder.get(b.roundId)?.index ?? -1)
+    )
+    for (let i = 1; i < executions.length; i++) {
+      const prev = executions[i - 1]
+      const curr = executions[i]
+      const prevRound = roundOrder.get(prev.roundId)?.round
+      const currRound = roundOrder.get(curr.roundId)?.round
+      if (
+        prev.status === TESTCASE_STATUS.PASSED &&
+        curr.status === TESTCASE_STATUS.FAILED
+      ) {
+        regressions.push({
+          testId,
+          title: curr.title || prev.title,
+          fromRound: prevRound,
+          toRound: currRound,
+          caseId: curr.id,
+          roundId: curr.roundId,
+        })
+      } else if (
+        prev.status === TESTCASE_STATUS.FAILED &&
+        curr.status === TESTCASE_STATUS.PASSED
+      ) {
+        recoveries.push({
+          testId,
+          title: curr.title || prev.title,
+          fromRound: prevRound,
+          toRound: currRound,
+        })
+      }
+    }
+  }
+  // Most-recent regressions first
+  regressions.sort(
+    (a, b) =>
+      (toMillis(b.toRound?.createdAt) || 0) - (toMillis(a.toRound?.createdAt) || 0)
+  )
+
+  // Oldest open bugs — bugs that have been sitting in the active queue the
+  // longest without being closed, fixed, or backlogged. A signal of triage
+  // debt.
+  const now = Date.now()
+  const openBugs = bugs
+    .filter(
+      (b) =>
+        b.status === BUG_STATUS.OPEN ||
+        b.status === BUG_STATUS.IN_PROGRESS ||
+        b.status === BUG_STATUS.RETEST
+    )
+    .map((b) => {
+      const created = toMillis(b.createdAt)
+      const ageDays = created ? Math.floor((now - created) / 86400000) : null
+      return { bug: b, ageDays }
+    })
+    .filter((x) => x.ageDays != null)
+    .sort((a, b) => b.ageDays - a.ageDays)
+    .slice(0, 8)
+
   return {
     passed,
     failed,
@@ -449,6 +659,9 @@ function computeStats(cases, bugs, users) {
     fixedWithDuration: fixDurations.length,
     modules,
     testers,
+    regressions,
+    recoveries,
+    openBugsAged: openBugs,
   }
 }
 
