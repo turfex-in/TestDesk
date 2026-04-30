@@ -69,30 +69,45 @@ export default function BugDetailPage() {
     return () => off && off()
   }, [bug?.projectId])
 
-  const { prevBug, nextBug, position, total } = useMemo(() => {
-    if (!projectBugs.length || !bug) {
-      return { prevBug: null, nextBug: null, position: 0, total: 0 }
-    }
-    const idx = projectBugs.findIndex((b) => b.id === bug.id)
-    if (idx === -1) return { prevBug: null, nextBug: null, position: 0, total: projectBugs.length }
-    return {
-      prevBug: projectBugs[idx - 1] || null,
-      nextBug: projectBugs[idx + 1] || null,
-      position: idx + 1,
-      total: projectBugs.length,
-    }
+  // Prev/Next walks the dev across bugs of the same triage group as the
+  // current one. Open and In Progress share the "active" pile (since both
+  // are unresolved work the dev is moving through); other statuses navigate
+  // only among siblings of the same status. Otherwise Next/Prev would land
+  // the dev on already-Fixed bugs while triaging the open queue.
+  const siblings = useMemo(() => {
+    if (!bug || !projectBugs.length) return []
+    const isActive =
+      bug.status === BUG_STATUS.OPEN || bug.status === BUG_STATUS.IN_PROGRESS
+    return projectBugs.filter((b) =>
+      isActive
+        ? b.status === BUG_STATUS.OPEN || b.status === BUG_STATUS.IN_PROGRESS
+        : b.status === bug.status
+    )
   }, [projectBugs, bug])
 
-  // After a terminal action (fix / backlog), jump to the next bug if there
-  // is one — otherwise go back to the list. Scoped to the active filter
-  // would be nicer, but project-wide order is good enough for the dev's
-  // batch-triage flow.
+  const { prevBug, nextBug, position, total } = useMemo(() => {
+    if (!siblings.length || !bug) {
+      return { prevBug: null, nextBug: null, position: 0, total: 0 }
+    }
+    const idx = siblings.findIndex((b) => b.id === bug.id)
+    if (idx === -1) return { prevBug: null, nextBug: null, position: 0, total: siblings.length }
+    return {
+      prevBug: siblings[idx - 1] || null,
+      nextBug: siblings[idx + 1] || null,
+      position: idx + 1,
+      total: siblings.length,
+    }
+  }, [siblings, bug])
+
+  // After a terminal action (fix / backlog) the current bug leaves the
+  // active pile. The closure here captured nextBug from the render where
+  // the user clicked, so we still navigate to what was "next" at click
+  // time — even though by now the watcher has dropped this bug from the
+  // active siblings.
   function advanceAfterAction() {
     if (nextBug) {
       navigate(`/bugs/${nextBug.id}`)
     } else if (prevBug) {
-      // No "next" but a "prev" exists → step backwards instead of bouncing
-      // back to the list. Keeps the dev moving through the queue.
       navigate(`/bugs/${prevBug.id}`)
     } else {
       navigate('/bugs')
