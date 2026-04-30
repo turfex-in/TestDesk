@@ -50,7 +50,7 @@ export const BUG_STATUS_LABEL = {
   fixed: 'Fixed',
   retest: 'Retest',
   closed: 'Closed',
-  rejected: 'Rejected',
+  rejected: 'Backlog',
 }
 
 export const ROUND_STATUS = {

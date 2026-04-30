@@ -8,6 +8,8 @@ import {
   Archive,
   Link as LinkIcon,
   Edit3,
+  RotateCcw,
+  Loader2,
 } from 'lucide-react'
 import {
   watchBug,
@@ -16,6 +18,7 @@ import {
   updateBug,
   updateTestCase,
   getRound,
+  addComment,
 } from '../services/firebaseService'
 import { useAuth } from '../context/AuthContext.jsx'
 import { ROLES, BUG_STATUS, BUG_STATUS_LABEL, TESTCASE_STATUS } from '../utils/constants'
@@ -38,6 +41,8 @@ export default function BugDetailPage() {
   const [reporter, setReporter] = useState(null)
   const [assignee, setAssignee] = useState(null)
   const [working, setWorking] = useState(false)
+  const [confirmBacklog, setConfirmBacklog] = useState(false)
+  const [backlogReason, setBacklogReason] = useState('')
 
   useEffect(() => {
     const off = watchBug(bugId, setBug)
@@ -71,12 +76,45 @@ export default function BugDetailPage() {
     }
   }
 
-  async function moveToBacklog() {
+  async function confirmMoveToBacklog() {
     if (!bug) return
     setWorking(true)
     try {
       await updateBug(bug.id, { status: BUG_STATUS.REJECTED })
+      // Mark the linked test case so any "won't fix, won't retest" UX
+      // (regression table strikethrough, dashboards) can hide or mute it.
+      if (testCase) {
+        await updateTestCase(testCase.id, { isBacklogged: true })
+      }
+      const reason = backlogReason.trim()
+      if (reason) {
+        await addComment(bug.id, {
+          userId: profile.uid,
+          userName: profile.name,
+          userRole: profile.role,
+          message: `Moved to backlog — ${reason}`,
+          projectId: bug.projectId || null,
+        })
+      }
       toast.success('Moved to backlog')
+      setConfirmBacklog(false)
+      setBacklogReason('')
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  async function reopen() {
+    if (!bug) return
+    setWorking(true)
+    try {
+      await updateBug(bug.id, { status: BUG_STATUS.OPEN })
+      if (testCase?.isBacklogged) {
+        await updateTestCase(testCase.id, { isBacklogged: false })
+      }
+      toast.success('Bug reopened')
     } catch (err) {
       toast.error(err.message)
     } finally {
@@ -177,21 +215,33 @@ export default function BugDetailPage() {
                 ))}
               </select>
 
-              <button
-                disabled={working || bug.status === BUG_STATUS.FIXED}
-                onClick={markAsFixed}
-                className="btn btn-md btn-success w-full"
-              >
-                <CheckCircle2 size={16} /> Mark as Fixed
-              </button>
+              {bug.status === BUG_STATUS.REJECTED ? (
+                <button
+                  disabled={working}
+                  onClick={reopen}
+                  className="btn btn-md btn-secondary w-full"
+                >
+                  <RotateCcw size={14} /> Reopen
+                </button>
+              ) : (
+                <>
+                  <button
+                    disabled={working || bug.status === BUG_STATUS.FIXED}
+                    onClick={markAsFixed}
+                    className="btn btn-md btn-success w-full"
+                  >
+                    <CheckCircle2 size={16} /> Mark as Fixed
+                  </button>
 
-              <button
-                disabled={working}
-                onClick={moveToBacklog}
-                className="btn btn-md btn-secondary w-full"
-              >
-                <Archive size={14} /> Move to Backlog
-              </button>
+                  <button
+                    disabled={working}
+                    onClick={() => setConfirmBacklog(true)}
+                    className="btn btn-md btn-secondary w-full"
+                  >
+                    <Archive size={14} /> Move to Backlog
+                  </button>
+                </>
+              )}
             </div>
           )}
 
@@ -210,6 +260,68 @@ export default function BugDetailPage() {
           )}
         </aside>
       </div>
+
+      {confirmBacklog && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center px-4 animate-fade-in"
+          onClick={() => !working && setConfirmBacklog(false)}
+        >
+          <div className="card p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-ink-dim/20 text-ink-muted flex items-center justify-center shrink-0">
+                <Archive size={20} />
+              </div>
+              <div>
+                <h3 className="text-h3 mb-1">Move bug to backlog?</h3>
+                <p className="text-body-md text-ink-muted">
+                  Use this when the feature is being removed or rewritten and the
+                  bug doesn't need to be fixed or retested. The bug disappears from
+                  active views and the linked test case is marked as backlogged.
+                  You can reopen it later.
+                </p>
+              </div>
+            </div>
+            <div className="bg-surface-lowest/70 border border-outline-variant/40 rounded p-3 text-body-md text-ink-muted mb-4">
+              <div className="font-semibold text-ink mb-1 truncate">{bug?.title}</div>
+              {testCase && (
+                <div className="font-mono text-[12px] text-primary">
+                  {testCase.testId} — {testCase.title}
+                </div>
+              )}
+            </div>
+            <div className="mb-5">
+              <label className="label-sm block mb-1.5">Reason (optional)</label>
+              <textarea
+                className="input w-full min-h-[72px] resize-y text-body-md"
+                placeholder="e.g. Booking flow is being rewritten in v2 — this case no longer applies."
+                value={backlogReason}
+                onChange={(e) => setBacklogReason(e.target.value)}
+                disabled={working}
+              />
+              <p className="text-[11px] text-ink-dim mt-1">
+                If you add a reason, it gets posted as a comment so the tester can see why.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmBacklog(false)}
+                disabled={working}
+                className="btn btn-md btn-ghost"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmMoveToBacklog}
+                disabled={working}
+                className="btn btn-md btn-secondary"
+              >
+                {working ? <Loader2 className="animate-spin" size={14} /> : <Archive size={14} />}
+                {working ? 'Moving…' : 'Move to backlog'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -14,6 +14,7 @@ const STATUS_FILTERS = [
   { key: BUG_STATUS.FIXED, label: 'Fixed' },
   { key: BUG_STATUS.RETEST, label: 'Retest' },
   { key: BUG_STATUS.CLOSED, label: 'Closed' },
+  { key: BUG_STATUS.REJECTED, label: 'Backlog' },
 ]
 
 export default function BugsPage() {
@@ -36,6 +37,9 @@ export default function BugsPage() {
 
   const filtered = useMemo(() => {
     return bugs.filter((b) => {
+      // "All" hides backlogged bugs so they don't clutter the active view —
+      // they only show under the explicit Backlog tab.
+      if (filter === 'all' && b.status === BUG_STATUS.REJECTED) return false
       if (filter !== 'all' && b.status !== filter) return false
       if (search) {
         const q = search.toLowerCase()
