@@ -212,8 +212,14 @@ export async function listTestCasesForRound(roundId) {
 // Watch all test cases in a project filtered by status (passed / failed).
 // Used by the dev's "Passes" page to surface tester notes left on
 // successful runs. Requires the (projectId, status, executedAt desc)
-// composite index in firestore.indexes.json.
-export function watchTestCasesByProjectStatus({ projectId, status, limitCount = 200 }, cb) {
+// composite index in firestore.indexes.json. Optional onError lets the
+// caller surface index-build / permission errors to the UI instead of
+// silently rendering an empty state.
+export function watchTestCasesByProjectStatus(
+  { projectId, status, limitCount = 200 },
+  cb,
+  onError
+) {
   const q = query(
     collection(db, TD.testcases),
     where('projectId', '==', projectId),
@@ -224,7 +230,10 @@ export function watchTestCasesByProjectStatus({ projectId, status, limitCount = 
   return onSnapshot(
     q,
     (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
-    snapshotError('watchTestCasesByProjectStatus')
+    (err) => {
+      snapshotError('watchTestCasesByProjectStatus')(err)
+      onError?.(err)
+    }
   )
 }
 

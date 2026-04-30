@@ -26,12 +26,15 @@ export default function PassesPage() {
   const [rounds, setRounds] = useState([])
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [listenerError, setListenerError] = useState(null)
 
   useEffect(() => {
     if (!selected?.id) return setCases([])
+    setListenerError(null)
     const off = watchTestCasesByProjectStatus(
       { projectId: selected.id, status: TESTCASE_STATUS.PASSED, limitCount: 300 },
-      setCases
+      setCases,
+      setListenerError
     )
     listUsers().then(setUsers).catch(() => {})
     listRounds(selected.id).then(setRounds).catch(() => {})
@@ -101,6 +104,19 @@ export default function PassesPage() {
           </div>
         </div>
       </div>
+
+      {listenerError && (
+        <div className="card p-4 mb-4 border border-danger/40 bg-danger/5 text-body-md">
+          <div className="font-semibold text-danger mb-1">
+            Couldn't load passes ({listenerError.code || 'unknown error'})
+          </div>
+          <div className="text-ink-muted">
+            {listenerError.code === 'failed-precondition'
+              ? 'Firestore is still building the (projectId, status, executedAt) index for this query — it takes a few minutes after deploy. Refresh in a couple of minutes. The browser console has a direct link to the index status.'
+              : listenerError.message}
+          </div>
+        </div>
+      )}
 
       {filtered.length === 0 ? (
         <EmptyState
