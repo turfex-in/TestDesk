@@ -9,7 +9,13 @@ import NotificationsBell from './NotificationsBell.jsx'
 
 export default function TopBar() {
   const navigate = useNavigate()
-  const { profile, logout, rememberedProfiles = [], forgetProfile } = useAuth()
+  const {
+    profile,
+    logout,
+    rememberedProfiles = [],
+    forgetProfile,
+    switchToProfile,
+  } = useAuth()
   const isDev = profile?.role === ROLES.DEVELOPER
   const { projects, selected, select, createNew } = useProject()
   const [open, setOpen] = useState(false)
@@ -178,8 +184,21 @@ export default function TopBar() {
                         <button
                           onClick={async () => {
                             try {
+                              const result = await switchToProfile(p.email)
+                              if (result?.ok) {
+                                setUserOpen(false)
+                                navigate('/')
+                                toast.success(`Switched to ${p.name || p.email}`)
+                                return
+                              }
+                              // No saved password (first-time switch) or the
+                              // stored one stopped working — fall back to the
+                              // login form with the email pre-filled.
                               await logout()
                               navigate(`/login?email=${encodeURIComponent(p.email)}`)
+                              if (result?.reason === 'auth') {
+                                toast.error('Saved password no longer works — please sign in.')
+                              }
                             } catch (err) {
                               toast.error(err.message || 'Could not switch')
                             }

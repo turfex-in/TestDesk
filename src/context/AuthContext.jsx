@@ -22,10 +22,17 @@ import { TD, ROLES } from '../utils/constants'
 const AuthContext = createContext(null)
 
 // Up to N remembered profiles for the account-switcher dropdown. Stored as
-// just metadata (email + name + role) — never passwords. Used to populate
-// "Switch profile" so the dev/tester can flip between accounts on the same
-// browser without retyping the email each time.
+// metadata (email + name + role) plus a paired credentials map keyed by
+// email so a tester/dev on a shared QA machine can flip between accounts
+// without retyping the password every time. The credentials live in a
+// separate localStorage key so we can clear them independently if needed.
+//
+// Caveat: the credentials map is plain text in localStorage. That's the
+// trade-off the team explicitly asked for here ("don't ask me password
+// again") on an internal QA tool — not appropriate for a public-facing
+// app. Forgetting a profile clears its stored credential.
 const REMEMBERED_KEY = 'td_remembered_profiles'
+const CREDS_KEY = 'td_remembered_credentials'
 const REMEMBERED_LIMIT = 5
 
 function loadRemembered() {
@@ -45,6 +52,40 @@ function saveRemembered(list) {
   } catch {
     // storage full / disabled — silently ignore
   }
+}
+
+function loadCreds() {
+  try {
+    const raw = localStorage.getItem(CREDS_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
+}
+
+function saveCreds(map) {
+  try {
+    localStorage.setItem(CREDS_KEY, JSON.stringify(map))
+  } catch {
+    // ignore
+  }
+}
+
+function rememberCredential(email, password) {
+  const map = loadCreds()
+  map[email.toLowerCase()] = password
+  saveCreds(map)
+}
+
+function getRememberedCredential(email) {
+  const map = loadCreds()
+  return map[email.toLowerCase()] || null
+}
+
+function forgetCredential(email) {
+  const map = loadCreds()
+  delete map[email.toLowerCase()]
+  saveCreds(map)
 }
 
 export function AuthProvider({ children }) {
@@ -108,14 +149,42 @@ export function AuthProvider({ children }) {
       saveRemembered(next)
       return next
     })
+    forgetCredential(email)
   }
 
   async function login(email, password) {
     await signInWithEmailAndPassword(auth, email, password)
+    // Cache for quick switching later. Only happens after a successful
+    // sign-in, so a wrong password is never persisted.
+    rememberCredential(email, password)
   }
 
   async function logout() {
     await signOut(auth)
+  }
+
+  // Sign in directly as a remembered profile using the cached credential.
+  // Returns { ok: true } if it worked, { ok: false, reason: 'no-credential' }
+  // if we have no stored password (first-time switch), or
+  // { ok: false, reason: 'auth', error } if the stored password no longer
+  // works (changed remotely, account disabled, etc.) — caller should
+  // route to /login?email=… as a fallback.
+  async function switchToProfile(email) {
+    const password = getRememberedCredential(email)
+    if (!password) return { ok: false, reason: 'no-credential' }
+    try {
+      await signInWithEmailAndPassword(auth, email, password)
+      return { ok: true }
+    } catch (error) {
+      // Stored password no longer valid — drop it so the user gets the
+      // password prompt next time instead of failing again silently.
+      forgetCredential(email)
+      return { ok: false, reason: 'auth', error }
+    }
+  }
+
+  function hasCredentialFor(email) {
+    return !!getRememberedCredential(email)
   }
 
   async function createFirstDeveloper({ name, email, password }) {
@@ -129,6 +198,7 @@ export function AuthProvider({ children }) {
       avatar: '',
       createdAt: serverTimestamp(),
     })
+    rememberCredential(email, password)
     setNeedsFirstTimeSetup(false)
   }
 
@@ -145,6 +215,8 @@ export function AuthProvider({ children }) {
       createFirstDeveloper,
       rememberedProfiles,
       forgetProfile,
+      switchToProfile,
+      hasCredentialFor,
     }),
     [user, profile, loading, needsFirstTimeSetup, rememberedProfiles]
   )
