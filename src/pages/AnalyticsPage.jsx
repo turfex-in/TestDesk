@@ -103,16 +103,26 @@ export default function AnalyticsPage() {
     }
     setAiLoading(true)
     try {
+      const n = stats.testers.length
       const teamBaselines = {
         avg_cases_per_tester: Math.round(
-          stats.testers.reduce((a, t) => a + t.cases, 0) / stats.testers.length
+          stats.testers.reduce((a, t) => a + t.cases, 0) / n
         ),
         avg_pass_rate_pct: Math.round(
-          stats.testers.reduce((a, t) => a + t.passRate, 0) / stats.testers.length
+          stats.testers.reduce((a, t) => a + t.passRate, 0) / n
         ),
         avg_seconds_per_case: stats.avgSecPerCase,
         avg_bugs_per_tester: Math.round(
-          stats.testers.reduce((a, t) => a + t.bugsReported, 0) / stats.testers.length
+          stats.testers.reduce((a, t) => a + t.bugsReported, 0) / n
+        ),
+        avg_active_days: Math.round(
+          stats.testers.reduce((a, t) => a + t.activeDays, 0) / n
+        ),
+        avg_active_minutes: Math.round(
+          stats.testers.reduce((a, t) => a + t.totalActiveMinutes, 0) / n
+        ),
+        avg_description_length_chars: Math.round(
+          stats.testers.reduce((a, t) => a + t.avgDescLen, 0) / n
         ),
       }
       const payload = {
@@ -123,6 +133,8 @@ export default function AnalyticsPage() {
           cases_executed: t.cases,
           pass_rate_pct: t.passRate,
           avg_seconds_per_case: t.avgSec,
+          active_days: t.activeDays,
+          total_active_minutes: t.totalActiveMinutes,
           bugs_reported: t.bugsReported,
           bugs_critical: t.bugsCritical,
           bugs_high: t.bugsHigh,
@@ -130,6 +142,9 @@ export default function AnalyticsPage() {
           bugs_backlogged: t.bugsBacklogged,
           bug_fix_rate_pct: t.bugFixRate,
           bug_backlog_rate_pct: t.bugBacklogRate,
+          avg_description_length_chars: t.avgDescLen,
+          screenshot_attach_rate_pct: t.screenshotPct,
+          sample_bugs: t.sampleBugs,
         })),
       }
       const evals = await evaluateTesterEffectiveness(payload)
@@ -380,7 +395,7 @@ export default function AnalyticsPage() {
 
         <Card
           title="Tester productivity"
-          subtitle="Cases executed by each tester, with their pass rate and average run time."
+          subtitle="Cases executed, pass rate, run time, engagement, and bug-report depth per tester."
           icon={TrendingUp}
         >
           {stats.testers.length === 0 ? (
@@ -390,9 +405,11 @@ export default function AnalyticsPage() {
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-wider text-ink-dim">
                   <th className="pb-2 font-semibold">Tester</th>
-                  <th className="pb-2 font-semibold text-right">Cases</th>
-                  <th className="pb-2 font-semibold text-right">Pass</th>
-                  <th className="pb-2 font-semibold text-right">Avg</th>
+                  <th className="pb-2 font-semibold text-right" title="Test cases executed">Cases</th>
+                  <th className="pb-2 font-semibold text-right" title="Pass rate">Pass</th>
+                  <th className="pb-2 font-semibold text-right" title="Average seconds per case">Avg</th>
+                  <th className="pb-2 font-semibold text-right" title="Days active on TestDesk · approx total active time">Active</th>
+                  <th className="pb-2 font-semibold text-right" title="Bugs reported · average description length in characters">Bugs</th>
                 </tr>
               </thead>
               <tbody>
@@ -416,6 +433,42 @@ export default function AnalyticsPage() {
                     </td>
                     <td className="py-2 text-right font-mono text-ink-muted">
                       {t.avgSec ? fmtTime(t.avgSec) : '—'}
+                    </td>
+                    <td className="py-2 text-right font-mono text-[11px] text-ink-muted">
+                      {t.activeDays
+                        ? (
+                          <>
+                            <span className="text-ink">{t.activeDays}d</span>
+                            <span className="text-ink-dim ml-1">
+                              {t.totalActiveMinutes >= 60
+                                ? `${Math.round(t.totalActiveMinutes / 60)}h`
+                                : `${t.totalActiveMinutes}m`}
+                            </span>
+                          </>
+                        )
+                        : '—'}
+                    </td>
+                    <td className="py-2 text-right font-mono text-[11px]">
+                      {t.bugsReported ? (
+                        <>
+                          <span className="text-ink">{t.bugsReported}</span>
+                          <span
+                            className={[
+                              'ml-1',
+                              t.avgDescLen >= 100
+                                ? 'text-secondary'
+                                : t.avgDescLen >= 40
+                                ? 'text-tertiary'
+                                : 'text-danger',
+                            ].join(' ')}
+                            title={`Avg ${t.avgDescLen} chars · ${t.screenshotPct}% with screenshots`}
+                          >
+                            {t.avgDescLen}c
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-ink-dim">—</span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -548,7 +601,7 @@ export default function AnalyticsPage() {
 
       <Card
         title="AI tester effectiveness"
-        subtitle="A QA-lead-style read on each tester's strengths, weaknesses, and one suggested action — based on volume, speed, pass rate, and bug-report quality."
+        subtitle="QA-lead read on each tester. Looks at TestDesk usage time, run speed, and the actual text of recent bug reports — not just volume."
         icon={Sparkles}
       >
         {!aiReady() ? (
@@ -558,9 +611,14 @@ export default function AnalyticsPage() {
         ) : aiEvals === null ? (
           <div className="flex flex-col items-start gap-3">
             <p className="text-body-md text-ink-muted">
-              Send the per-tester stats and team baselines to Gemini and get back
-              a 1–10 score, strengths, weaknesses, and a recommended action for
-              each tester. Burns one API call.
+              Sends each tester's metrics to Gemini —{' '}
+              <span className="text-ink">cases, pass rate, avg run time,</span>{' '}
+              <span className="text-ink">days active on TestDesk, total time spent,</span>{' '}
+              <span className="text-ink">bug fix-rate vs backlog-rate,</span>{' '}
+              and <span className="text-ink">two recent bug-report descriptions verbatim</span>{' '}
+              so it can grade whether reports are detailed or terse "broken"
+              one-liners. Returns a 1–10 score, strengths, weaknesses, and a
+              concrete action per tester. Burns one API call.
             </p>
             <button
               onClick={runAiAssessment}
@@ -764,6 +822,8 @@ function computeStats(cases, bugs, users, rounds = [], scopeRoundId = null) {
   }
   // Per-tester bug-side stats (reported by them within the scope), used by
   // both the productivity card and the AI effectiveness assessment.
+  // Also collects raw description samples so the LLM can grade *quality*
+  // (not just count) — "broken" vs a structured walkthrough.
   const bugStatsByUid = new Map()
   for (const b of scopedBugs) {
     if (!b.reportedBy) continue
@@ -774,6 +834,9 @@ function computeStats(cases, bugs, users, rounds = [], scopeRoundId = null) {
         high: 0,
         fixed: 0,
         backlogged: 0,
+        descLengthSum: 0,
+        withScreenshots: 0,
+        bugs: [],
       })
     }
     const s = bugStatsByUid.get(b.reportedBy)
@@ -782,6 +845,51 @@ function computeStats(cases, bugs, users, rounds = [], scopeRoundId = null) {
     else if (b.severity === 'High') s.high += 1
     if (b.status === BUG_STATUS.FIXED || b.status === BUG_STATUS.CLOSED) s.fixed += 1
     if (b.status === BUG_STATUS.REJECTED) s.backlogged += 1
+    const description = `${b.actualBehavior || ''} ${b.additionalNotes || ''}`.trim()
+    s.descLengthSum += description.length
+    if (Array.isArray(b.screenshots) && b.screenshots.length > 0) s.withScreenshots += 1
+    s.bugs.push(b)
+  }
+
+  // Per-tester engagement: how many distinct days they were active and a
+  // rough total active time. Activity events come from test executions,
+  // bug reports, and comments. Same-day events form a session — we cap each
+  // session at 8 hours so a stray late-night ping doesn't claim a full day.
+  const activityByUid = new Map()
+  function recordActivity(uid, ts) {
+    if (!uid || !ts) return
+    if (!activityByUid.has(uid)) activityByUid.set(uid, [])
+    activityByUid.get(uid).push(ts)
+  }
+  for (const c of scopedCases) {
+    const ts = toMillis(c.executedAt)
+    if (ts && c.executedBy) recordActivity(c.executedBy, ts)
+  }
+  for (const b of scopedBugs) {
+    const ts = toMillis(b.createdAt)
+    if (ts && b.reportedBy) recordActivity(b.reportedBy, ts)
+  }
+  function sessionStatsFor(uid) {
+    const events = activityByUid.get(uid) || []
+    if (!events.length) return { activeDays: 0, totalMinutes: 0 }
+    const byDay = new Map()
+    for (const ts of events) {
+      const day = new Date(ts).toISOString().slice(0, 10)
+      if (!byDay.has(day)) byDay.set(day, [ts, ts])
+      const [min, max] = byDay.get(day)
+      byDay.set(day, [Math.min(min, ts), Math.max(max, ts)])
+    }
+    let totalMs = 0
+    for (const [, [min, max]] of byDay) {
+      // Cap each day at 8h so a single afternoon doesn't bloat to 24h.
+      // Floor at 5min so a single-event day still counts as engagement.
+      const dur = Math.min(8 * 3600000, Math.max(5 * 60000, max - min))
+      totalMs += dur
+    }
+    return {
+      activeDays: byDay.size,
+      totalMinutes: Math.round(totalMs / 60000),
+    }
   }
 
   const testers = [...testerMap.values()]
@@ -792,9 +900,26 @@ function computeStats(cases, bugs, users, rounds = [], scopeRoundId = null) {
         high: 0,
         fixed: 0,
         backlogged: 0,
+        descLengthSum: 0,
+        withScreenshots: 0,
+        bugs: [],
       }
       const fixRate = bs.total ? Math.round((bs.fixed / bs.total) * 100) : 0
       const backlogRate = bs.total ? Math.round((bs.backlogged / bs.total) * 100) : 0
+      const avgDescLen = bs.total ? Math.round(bs.descLengthSum / bs.total) : 0
+      const screenshotPct = bs.total ? Math.round((bs.withScreenshots / bs.total) * 100) : 0
+      // Two most recent bug-report descriptions, trimmed — the LLM uses
+      // these to judge whether reports are useful or terse "broken" notes.
+      const sampleBugs = [...bs.bugs]
+        .sort((a, b) => (toMillis(b.createdAt) || 0) - (toMillis(a.createdAt) || 0))
+        .slice(0, 2)
+        .map((b) => ({
+          severity: b.severity || 'Unknown',
+          title: (b.title || '').slice(0, 100),
+          description: (b.actualBehavior || '').slice(0, 300),
+          has_screenshots: Array.isArray(b.screenshots) && b.screenshots.length > 0,
+        }))
+      const session = sessionStatsFor(t.uid)
       return {
         uid: t.uid,
         name: t.name,
@@ -810,6 +935,11 @@ function computeStats(cases, bugs, users, rounds = [], scopeRoundId = null) {
         bugsBacklogged: bs.backlogged,
         bugFixRate: fixRate,
         bugBacklogRate: backlogRate,
+        avgDescLen,
+        screenshotPct,
+        sampleBugs,
+        activeDays: session.activeDays,
+        totalActiveMinutes: session.totalMinutes,
       }
     })
     .sort((a, b) => b.cases - a.cases)

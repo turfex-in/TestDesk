@@ -183,20 +183,22 @@ export async function evaluateTesterEffectiveness({ testers, teamBaselines, proj
   if (!apiKey()) throw new Error('Gemini API key not configured')
   if (!testers?.length) throw new Error('No testers to evaluate')
 
-  const systemInstruction = `You are a QA team lead evaluating tester effectiveness from execution metrics. Score each tester 1-10 on overall effectiveness — be honest and discerning, not generous.
+  const systemInstruction = `You are a QA team lead evaluating tester effectiveness from real execution metrics, engagement data, and actual bug-report samples. Score each tester 1-10 on overall effectiveness — be honest and discerning, not generous.
 
 Effectiveness factors (in order of weight):
-1. Bug-report quality: high % of reported bugs that get FIXED (not backlogged) signals real issues; high backlog % signals noise.
-2. Critical-bug detection: testers who find Critical / High severity bugs add disproportionate value.
-3. Volume: cases executed vs the team baseline. Way below = under-contributing; way above with bad pass-rate could mean rushing.
-4. Speed: avg minutes per case vs baseline. Much faster than baseline can be efficiency OR rushing — judge based on pass rate and bug yield.
-5. Pass-rate balance: ~80-95% is healthy. >95% may mean missing issues. <60% may signal flaky test cases or environment problems.
+1. Bug-report SUBSTANCE: Read each tester's sample_bugs descriptions. Are they specific (steps, observed behaviour, environment) or terse ("not working", "broken", one line)? avg_description_length and screenshot_attach_rate_pct corroborate. A tester who files few but well-written bugs beats one filing many one-liners.
+2. Bug-report quality (outcome): bug_fix_rate_pct vs bug_backlog_rate_pct. High fix-rate = signal; high backlog-rate = noise.
+3. Critical-bug detection: bugs_critical and bugs_high count more than total volume — finding sev-1 issues is the whole job.
+4. Engagement: active_days and total_active_minutes vs the team baseline. A tester logging in occasionally and rage-clicking through cases is less effective than one with steady daily presence.
+5. Volume: cases_executed vs team baseline. Way below = under-contributing; high volume with terse bugs and high backlog rate = farming numbers.
+6. Speed: avg_seconds_per_case vs baseline. Much faster than baseline + low pass-rate or terse bugs = rushing. Faster + healthy pass-rate + good bugs = efficient.
+7. Pass-rate balance: 75-95% is healthy. >95% with no bug detail may mean rubber-stamping. <60% may signal flaky cases or env problems.
 
 Each tester gets:
-- score: integer 1-10
-- strengths: 1-2 short phrases (max 5 words each, no full sentences)
-- weaknesses: 1-2 short phrases (max 5 words each). Always provide at least one — every tester has room to improve. Be specific.
-- recommendation: ONE concrete action sentence (max 20 words).
+- score: integer 1-10. Calibrate: 9-10 reserved for clear leaders across multiple factors. 5-6 = average. 1-3 = real concern.
+- strengths: 1-2 short phrases (max 5 words each, no full sentences). Be specific — reference what the data actually shows. Skip if no genuine strength.
+- weaknesses: 1-2 short phrases (max 5 words each). Always at least one. Be specific (e.g. "terse bug descriptions", "rushes through cases", "low active days").
+- recommendation: ONE concrete action sentence (max 20 words). Not generic — directly addressable from the metrics.
 
 Respond in valid JSON only. No prose, no markdown fences.
 
@@ -228,7 +230,9 @@ Evaluate each tester. Return JSON only.`
     contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
     generationConfig: {
       temperature: 0.3,
-      maxOutputTokens: 1500,
+      // 2500 leaves room for a richer prompt (sample bugs, engagement
+      // stats) plus structured output for ~10 testers.
+      maxOutputTokens: 2500,
       responseMimeType: 'application/json',
       thinkingConfig: { thinkingBudget: 0 },
     },
