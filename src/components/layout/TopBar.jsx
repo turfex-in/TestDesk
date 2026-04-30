@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { Search, HelpCircle, ChevronDown, FolderPlus, Check, LogOut } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Search, HelpCircle, ChevronDown, FolderPlus, Check, LogOut, UserPlus, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useProject } from '../../context/ProjectContext.jsx'
 import { ROLES } from '../../utils/constants'
@@ -7,7 +8,8 @@ import toast from 'react-hot-toast'
 import NotificationsBell from './NotificationsBell.jsx'
 
 export default function TopBar() {
-  const { profile, logout } = useAuth()
+  const navigate = useNavigate()
+  const { profile, logout, rememberedProfiles = [], forgetProfile } = useAuth()
   const isDev = profile?.role === ROLES.DEVELOPER
   const { projects, selected, select, createNew } = useProject()
   const [open, setOpen] = useState(false)
@@ -152,14 +154,75 @@ export default function TopBar() {
             </span>
           </button>
           {userOpen && (
-            <div className="absolute right-0 top-full mt-1 w-56 card p-2 z-50 animate-fade-in">
+            <div className="absolute right-0 top-full mt-1 w-72 card p-2 z-50 animate-fade-in">
               <div className="px-3 py-2 border-b border-outline-variant/40">
                 <div className="font-semibold truncate">{profile?.name}</div>
                 <div className="text-[11px] text-ink-dim truncate">{profile?.email}</div>
               </div>
+
+              {(() => {
+                const others = rememberedProfiles.filter(
+                  (p) => p.email.toLowerCase() !== (profile?.email || '').toLowerCase()
+                )
+                if (!others.length) return null
+                return (
+                  <div className="mt-1 pt-1 border-b border-outline-variant/40 pb-1">
+                    <div className="px-3 py-1 text-[11px] uppercase tracking-wider text-ink-dim">
+                      Switch profile
+                    </div>
+                    {others.map((p) => (
+                      <div
+                        key={p.email}
+                        className="group flex items-center gap-2 px-3 py-2 rounded hover:bg-surface-high"
+                      >
+                        <button
+                          onClick={async () => {
+                            try {
+                              await logout()
+                              navigate(`/login?email=${encodeURIComponent(p.email)}`)
+                            } catch (err) {
+                              toast.error(err.message || 'Could not switch')
+                            }
+                          }}
+                          className="flex-1 flex items-center gap-2 text-left min-w-0"
+                        >
+                          <span className="w-7 h-7 rounded-full bg-primary-container/30 text-primary flex items-center justify-center text-[11px] font-semibold shrink-0">
+                            {(p.name || p.email).split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block font-medium truncate">{p.name || p.email}</span>
+                            <span className="block text-[11px] text-ink-dim truncate">{p.email}</span>
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => forgetProfile(p.email)}
+                          title="Forget this profile"
+                          className="opacity-0 group-hover:opacity-100 text-ink-dim hover:text-danger w-6 h-6 rounded flex items-center justify-center"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
+
+              <button
+                onClick={async () => {
+                  try {
+                    await logout()
+                    navigate('/login')
+                  } catch (err) {
+                    toast.error(err.message || 'Could not sign out')
+                  }
+                }}
+                className="w-full text-left px-3 py-2 mt-1 rounded hover:bg-surface-high flex items-center gap-2 text-ink-muted"
+              >
+                <UserPlus size={14} /> Add another account
+              </button>
               <button
                 onClick={() => logout()}
-                className="w-full text-left px-3 py-2 mt-1 rounded hover:bg-surface-high flex items-center gap-2 text-danger"
+                className="w-full text-left px-3 py-2 rounded hover:bg-surface-high flex items-center gap-2 text-danger"
               >
                 <LogOut size={14} /> Sign out
               </button>

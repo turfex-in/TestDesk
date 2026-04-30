@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Navigate } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { Loader2, Eye, EyeOff } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -7,14 +7,25 @@ import logoApp from '../assets/logo-app.png'
 
 export default function LoginPage() {
   const { user, profile, loading, needsFirstTimeSetup, login, createFirstDeveloper } = useAuth()
+  const [searchParams] = useSearchParams()
+  const prefilledEmail = searchParams.get('email') || ''
   const [mode, setMode] = useState('login')
-  const [form, setForm] = useState({ name: '', email: '', password: '' })
+  const [form, setForm] = useState({ name: '', email: prefilledEmail, password: '' })
   const [submitting, setSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const passwordRef = useRef(null)
 
   useEffect(() => {
     if (needsFirstTimeSetup) setMode('setup')
   }, [needsFirstTimeSetup])
+
+  // When the email is pre-filled (account-switcher flow), jump straight to
+  // the password field so the user can type and submit without an extra tab.
+  useEffect(() => {
+    if (prefilledEmail && passwordRef.current) {
+      passwordRef.current.focus()
+    }
+  }, [prefilledEmail])
 
   if (loading) {
     return (
@@ -127,6 +138,7 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   autoComplete={mode === 'setup' ? 'new-password' : 'current-password'}
                   required
+                  ref={passwordRef}
                 />
                 <button
                   type="button"
