@@ -37,9 +37,16 @@ export default function BugsPage() {
 
   const filtered = useMemo(() => {
     return bugs.filter((b) => {
-      // "All" hides backlogged bugs so they don't clutter the active view —
-      // they only show under the explicit Backlog tab.
-      if (filter === 'all' && b.status === BUG_STATUS.REJECTED) return false
+      // "All" shows only active work — fixed and backlogged bugs are out
+      // of the dev's queue and only show under their own explicit tabs.
+      // If the tester retests a fixed case and fails it, the failure
+      // creates a new bug which shows up in All again.
+      if (
+        filter === 'all' &&
+        (b.status === BUG_STATUS.REJECTED || b.status === BUG_STATUS.FIXED)
+      ) {
+        return false
+      }
       if (filter !== 'all' && b.status !== filter) return false
       if (search) {
         const q = search.toLowerCase()
