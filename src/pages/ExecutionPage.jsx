@@ -46,9 +46,16 @@ export default function ExecutionPage() {
   // Frozen elapsed time at the moment the tester clicks PASS, so the time
   // doesn't keep ticking while they write a note.
   const [pendingTaken, setPendingTaken] = useState(0)
+  // Cases the tester chose to defer this session. Skip doesn't write to
+  // Firestore (the case stays PENDING so it carries over tomorrow), so we
+  // need an in-memory bypass otherwise advance() walks straight back to the
+  // first pending case — which is the previously-skipped one. Reset on
+  // round change.
+  const [skippedIds, setSkippedIds] = useState(() => new Set())
   const startedAt = useRef(null)
 
   useEffect(() => {
+    setSkippedIds(new Set())
     getRound(roundId).then(setRound)
     const off = watchTestCasesForRound(roundId, (list) => {
       list.sort((a, b) => {
@@ -196,7 +203,9 @@ export default function ExecutionPage() {
 
   // Skip leaves the case PENDING (or RETEST) — the tester can come back to
   // it any time today, and if they don't, the carry-over pass on next mount
-  // will roll it into tomorrow's batch like any other untested case.
+  // will roll it into tomorrow's batch like any other untested case. We
+  // augment the skipped set BEFORE calling advance so the picker doesn't
+  // walk straight back to a case we just skipped.
   function markSkip() {
     if (!current || isComplete) return
     if (sessionKey) localStorage.removeItem(sessionKey)
@@ -204,7 +213,10 @@ export default function ExecutionPage() {
     setElapsed(0)
     setNote('')
     toast(`${current.testId} skipped — back to it later`)
-    advance()
+    const nextSkipped = new Set(skippedIds)
+    nextSkipped.add(current.id)
+    setSkippedIds(nextSkipped)
+    advance(nextSkipped)
   }
 
   async function onBugSubmitted() {
@@ -227,14 +239,29 @@ export default function ExecutionPage() {
     }
   }
 
-  function advance() {
-    const remaining = todayPending.filter((c) => c.id !== current?.id)
-    if (remaining.length === 0) {
-      toast.success("Today's batch complete!")
-      setCurrentId(null)
+  // `excludeSet` lets the caller pass an updated skipped set in the same
+  // tick they called setSkippedIds — React state isn't applied yet, so
+  // reading skippedIds here would still show the old value.
+  function advance(excludeSet = skippedIds) {
+    const remaining = todayPending.filter(
+      (c) => c.id !== current?.id && !excludeSet.has(c.id)
+    )
+    if (remaining.length > 0) {
+      setCurrentId(remaining[0].id)
       return
     }
-    setCurrentId(remaining[0].id)
+    // Nothing left except previously-skipped cases — clear the skip set
+    // and loop the tester back through them once more, so they get a
+    // second chance before the batch is declared complete.
+    const skippedRemaining = todayPending.filter((c) => c.id !== current?.id)
+    if (skippedRemaining.length > 0) {
+      setSkippedIds(new Set())
+      setCurrentId(skippedRemaining[0].id)
+      toast('Looping back through skipped cases')
+      return
+    }
+    toast.success("Today's batch complete!")
+    setCurrentId(null)
   }
 
   if (!round) {
