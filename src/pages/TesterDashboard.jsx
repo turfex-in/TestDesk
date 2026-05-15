@@ -201,7 +201,6 @@ function groupByDay(cases, todayStr) {
     if (!map.has(c.batchDate)) {
       map.set(c.batchDate, {
         date: c.batchDate,
-        dayNumber: c.batchDay || 0,
         total: 0,
         passed: 0,
         failed: 0,
@@ -213,16 +212,14 @@ function groupByDay(cases, todayStr) {
     if (c.status === TESTCASE_STATUS.PASSED) d.passed++
     else if (c.status === TESTCASE_STATUS.FAILED) d.failed++
     else d.pending++
-    // batchDay drifts when carry-over rewrites batchDate; keep the smallest
-    // observed batchDay for the date so labels stay stable.
-    if (c.batchDay && (!d.dayNumber || c.batchDay < d.dayNumber)) {
-      d.dayNumber = c.batchDay
-    }
   }
+  // Number days strictly by sorted-date position. The stored c.batchDay
+  // drifts after carry-over rewrites batchDate, which produced duplicate
+  // "Day 4" labels for completely different dates.
   const out = [...map.values()].sort((a, b) => a.date.localeCompare(b.date))
   return out.map((d, i) => ({
     ...d,
-    dayNumber: d.dayNumber || i + 1,
+    dayNumber: i + 1,
     when: d.date < todayStr ? 'past' : d.date === todayStr ? 'today' : 'future',
   }))
 }

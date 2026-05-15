@@ -10,7 +10,7 @@ import {
 } from '../services/firebaseService'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useProject } from '../context/ProjectContext.jsx'
-import { ROLES } from '../utils/constants'
+import { ROLES, TESTCASE_STATUS } from '../utils/constants'
 import FunnelOverview from '../components/rounds/FunnelOverview.jsx'
 import RegressionTable from '../components/rounds/RegressionTable.jsx'
 import Badge from '../components/common/Badge.jsx'
@@ -45,25 +45,66 @@ export default function RoundDetailPage() {
     if (selected?.id) listRounds(selected.id).then(setProjectRounds)
   }, [selected?.id])
 
+  // Ground-truth current-round stats derived from the actual test cases.
+  // Stored counters (round.passed/failed/pending) drift after retests +
+  // carry-over, which is what produced the "215 PASS / 5 FAIL / -7 PEND"
+  // display. Derive everything from `cases` so the numbers add up.
+  const currentStats = useMemo(() => {
+    let passed = 0
+    let failed = 0
+    let pending = 0
+    let retest = 0
+    let carry = 0
+    for (const c of cases) {
+      if (c.status === TESTCASE_STATUS.PASSED) passed++
+      else if (c.status === TESTCASE_STATUS.FAILED) failed++
+      else pending++
+      if (c.isRetest) retest++
+      if (c.isCarryOver) carry++
+    }
+    const total = cases.length
+    return { total, passed, failed, pending, retest, carry }
+  }, [cases])
+
   const funnelSteps = useMemo(() => {
-    // Build funnel from all rounds in this project with the same module
-    const siblings = projectRounds
-      .filter((r) => r.module === round?.module)
-      .sort((a, b) => a.roundNumber - b.roundNumber)
-    return siblings.map((r) => ({
-      roundNumber: r.roundNumber,
-      total: r.totalCases,
-      passed: r.passed,
-      failed: r.failed,
-      date: r.startDate,
-      testerName: tester?.name,
-    }))
-  }, [projectRounds, round?.module, tester])
+    // Build funnel from sibling rounds in this module. Dedupe by roundNumber
+    // (the seed data sometimes contains two rounds both numbered 1) so the
+    // funnel doesn't render "Round 1 → Round 1" with two different totals.
+    const byNumber = new Map()
+    for (const r of projectRounds) {
+      if (r.module !== round?.module) continue
+      const existing = byNumber.get(r.roundNumber)
+      // Prefer the newest if there's a tie.
+      if (!existing || (r.startDate || '') > (existing.startDate || '')) {
+        byNumber.set(r.roundNumber, r)
+      }
+    }
+    const siblings = [...byNumber.values()].sort(
+      (a, b) => (a.roundNumber || 0) - (b.roundNumber || 0)
+    )
+    return siblings.map((r) => {
+      // For the round currently open, use the ground-truth derived stats.
+      // For siblings we have to trust the (drifty) stored counters because
+      // we don't have their case lists loaded.
+      const isCurrent = r.id === roundId
+      const total = isCurrent ? currentStats.total : r.totalCases || 0
+      const rawPassed = isCurrent ? currentStats.passed : r.passed || 0
+      const rawFailed = isCurrent ? currentStats.failed : r.failed || 0
+      const clampedPassed = Math.max(0, Math.min(rawPassed, total))
+      const clampedFailed = Math.max(0, Math.min(rawFailed, Math.max(0, total - clampedPassed)))
+      return {
+        roundNumber: r.roundNumber,
+        total,
+        passed: clampedPassed,
+        failed: clampedFailed,
+        date: r.startDate,
+        testerName: tester?.name,
+      }
+    })
+  }, [projectRounds, round?.module, roundId, currentStats, tester])
 
   const allPassed = funnelSteps.length > 0 && funnelSteps.every((s) => s.failed === 0 && s.passed === s.total)
-  const daysElapsed = funnelSteps.length
-    ? funnelSteps.reduce((acc, s) => acc + 2, 0)
-    : 0
+  const daysElapsed = funnelSteps.length * 2
 
   async function handleDelete() {
     if (deleting) return

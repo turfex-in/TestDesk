@@ -12,10 +12,13 @@ const STATUS_TONE = {
 
 export default function RoundCard({ round, tester }) {
   const navigate = useNavigate()
+  // Stored counters (passed/failed/pending) drift over time because retests
+  // and carry-over update them incrementally. Clamp everything to the
+  // [0, total] window so we never display nonsense like "-7 PEND".
   const total = round.totalCases || 0
-  const passed = round.passed || 0
-  const failed = round.failed || 0
-  const pending = round.pending ?? Math.max(0, total - passed - failed)
+  const passed = Math.max(0, Math.min(round.passed || 0, total))
+  const failed = Math.max(0, Math.min(round.failed || 0, Math.max(0, total - passed)))
+  const pending = Math.max(0, total - passed - failed)
   const progress = pct(passed + failed, total)
 
   return (
