@@ -10,6 +10,7 @@ import {
   Archive,
   ThumbsUp,
   BarChart3,
+  MessageSquare,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
@@ -25,6 +26,7 @@ const DEV_NAV = [
   { to: '/bugs', label: 'Bugs', icon: Bug },
   { to: '/bugs/fixed', label: 'Fixed', icon: CheckCircle2 },
   { to: '/bugs/backlog', label: 'Backlog', icon: Archive },
+  { to: '/messages', label: 'Messages', icon: MessageSquare },
   { to: '/passes', label: 'Passes', icon: ThumbsUp },
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/settings', label: 'Settings', icon: Settings, footer: true },
@@ -34,6 +36,7 @@ const TESTER_NAV = [
   { to: '/my-tests', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/rounds', label: 'My Rounds', icon: PlayCircle },
   { to: '/bugs', label: 'Bugs I Reported', icon: Bug },
+  { to: '/messages', label: 'Messages', icon: MessageSquare },
 ]
 
 // /bugs needs to highlight on /bugs and /bugs/<id> but NOT on the dedicated

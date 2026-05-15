@@ -12,6 +12,7 @@ import ExecutionPage from './pages/ExecutionPage.jsx'
 import BugsPage from './pages/BugsPage.jsx'
 import BugDetailPage from './pages/BugDetailPage.jsx'
 import ReportBugPage from './pages/ReportBugPage.jsx'
+import MessagesPage from './pages/MessagesPage.jsx'
 import PassesPage from './pages/PassesPage.jsx'
 import AnalyticsPage from './pages/AnalyticsPage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
@@ -91,6 +92,7 @@ export default function App() {
         <Route path="/bugs/fixed" element={<BugsPage defaultFilter="fixed" pageTitle="Fixed" pageDescription="Bugs the developer has fixed and queued for retest." />} />
         <Route path="/bugs/backlog" element={<BugsPage defaultFilter="rejected" pageTitle="Backlog" pageDescription="Bugs deferred — no fix or retest planned. Reopen if priorities change." />} />
         <Route path="/bugs/:bugId" element={<BugDetailPage />} />
+        <Route path="/messages" element={<MessagesPage />} />
         <Route
           path="/passes"
           element={
