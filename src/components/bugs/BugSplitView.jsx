@@ -3,6 +3,11 @@ import { CheckCircle2, XCircle, X } from 'lucide-react'
 
 export default function BugSplitView({ testCase, bug }) {
   const [lightbox, setLightbox] = useState(null)
+  const isStandalone = bug?.standalone || !testCase
+  const reproSteps =
+    isStandalone && bug?.stepsToReproduce
+      ? bug.stepsToReproduce.split('\n').map((s) => s.trim()).filter(Boolean)
+      : null
 
   return (
     <>
@@ -12,23 +17,51 @@ export default function BugSplitView({ testCase, bug }) {
           <div className="px-5 py-3 bg-secondary/10 border-b border-outline-variant/40 flex items-center gap-2">
             <CheckCircle2 className="text-secondary" size={16} />
             <span className="label-sm text-secondary">Expected Behavior</span>
+            {isStandalone && (
+              <span className="ml-auto text-[10px] font-semibold uppercase tracking-wider text-tertiary bg-tertiary/15 px-2 py-0.5 rounded">
+                Exploratory
+              </span>
+            )}
           </div>
           <div className="p-5 space-y-4">
-            <div>
-              <div className="label-sm mb-2">Test Case Steps</div>
-              <ol className="list-decimal pl-5 space-y-1.5 text-body-md">
-                {(testCase?.expandedSteps || []).map((s, i) => (
-                  <li key={i}>{s}</li>
-                ))}
-                {(!testCase?.expandedSteps || testCase.expandedSteps.length === 0) && (
-                  <li className="text-ink-dim italic">No steps documented.</li>
+            {isStandalone ? (
+              <>
+                <div>
+                  <div className="label-sm mb-2 text-secondary">Reporter's Expected Result</div>
+                  <p className="text-body-md whitespace-pre-wrap">
+                    {bug?.expectedBehavior || '—'}
+                  </p>
+                </div>
+                {reproSteps && reproSteps.length > 0 && (
+                  <div>
+                    <div className="label-sm mb-2">Steps to Reproduce</div>
+                    <ol className="list-decimal pl-5 space-y-1.5 text-body-md">
+                      {reproSteps.map((s, i) => (
+                        <li key={i}>{s.replace(/^\d+[.)]\s*/, '')}</li>
+                      ))}
+                    </ol>
+                  </div>
                 )}
-              </ol>
-            </div>
-            <div>
-              <div className="label-sm mb-2 text-secondary">Expected Result</div>
-              <p className="text-body-md">{testCase?.expectedResult || '—'}</p>
-            </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <div className="label-sm mb-2">Test Case Steps</div>
+                  <ol className="list-decimal pl-5 space-y-1.5 text-body-md">
+                    {(testCase?.expandedSteps || []).map((s, i) => (
+                      <li key={i}>{s}</li>
+                    ))}
+                    {(!testCase?.expandedSteps || testCase.expandedSteps.length === 0) && (
+                      <li className="text-ink-dim italic">No steps documented.</li>
+                    )}
+                  </ol>
+                </div>
+                <div>
+                  <div className="label-sm mb-2 text-secondary">Expected Result</div>
+                  <p className="text-body-md">{testCase?.expectedResult || '—'}</p>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

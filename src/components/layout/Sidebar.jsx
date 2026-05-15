@@ -12,9 +12,9 @@ import {
   BarChart3,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useProject } from '../../context/ProjectContext.jsx'
-import { useBugReporter } from '../../context/BugReportContext.jsx'
 import { ROLES } from '../../utils/constants'
 import Avatar from '../common/Avatar.jsx'
 import logoApp from '../../assets/logo-app.png'
@@ -56,7 +56,7 @@ function isItemActive(item, pathname) {
 export default function Sidebar() {
   const { profile } = useAuth()
   const { selected } = useProject()
-  const { openBugReport } = useBugReporter()
+  const navigate = useNavigate()
   const { pathname } = useLocation()
   const isDev = profile?.role === ROLES.DEVELOPER
   const nav = isDev ? DEV_NAV : TESTER_NAV
@@ -66,7 +66,7 @@ export default function Sidebar() {
       toast.error('Pick a project first from the top bar.')
       return
     }
-    openBugReport()
+    navigate('/bugs/new')
   }
 
   return (

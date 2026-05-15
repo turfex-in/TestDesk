@@ -61,7 +61,14 @@ export default function RecentBugs({ bugs, users }) {
                     <Link to={`/bugs/${b.id}`} className="block font-medium hover:text-primary">
                       {b.title}
                     </Link>
-                    {b.device && <div className="text-[12px] text-ink-dim truncate">{b.device}</div>}
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {b.standalone && (
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-tertiary bg-tertiary/15 px-1.5 py-0.5 rounded">
+                          Exploratory
+                        </span>
+                      )}
+                      {b.device && <div className="text-[12px] text-ink-dim truncate">{b.device}</div>}
+                    </div>
                   </td>
                   <td className="px-5 py-3">
                     <Badge tone={SEVERITY_TONE[b.severity] || 'neutral'}>{b.severity}</Badge>

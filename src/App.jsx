@@ -11,6 +11,7 @@ import CreateRoundPage from './pages/CreateRoundPage.jsx'
 import ExecutionPage from './pages/ExecutionPage.jsx'
 import BugsPage from './pages/BugsPage.jsx'
 import BugDetailPage from './pages/BugDetailPage.jsx'
+import ReportBugPage from './pages/ReportBugPage.jsx'
 import PassesPage from './pages/PassesPage.jsx'
 import AnalyticsPage from './pages/AnalyticsPage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
@@ -78,6 +79,14 @@ export default function App() {
         } />
         <Route path="/rounds/:roundId" element={<RoundDetailPage />} />
         <Route path="/rounds/:roundId/execute" element={<ExecutionPage />} />
+        <Route
+          path="/bugs/new"
+          element={
+            <ProtectedRoute roles={[ROLES.TESTER]}>
+              <ReportBugPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/bugs" element={<BugsPage />} />
         <Route path="/bugs/fixed" element={<BugsPage defaultFilter="fixed" pageTitle="Fixed" pageDescription="Bugs the developer has fixed and queued for retest." />} />
         <Route path="/bugs/backlog" element={<BugsPage defaultFilter="rejected" pageTitle="Backlog" pageDescription="Bugs deferred — no fix or retest planned. Reopen if priorities change." />} />
