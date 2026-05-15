@@ -79,13 +79,19 @@ export default function MessagesPage() {
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase()
+    const searching = q.length > 0
     return involvedBugs
       .filter((b) => {
-        if (!q) return true
-        return (
-          (b.title || '').toLowerCase().includes(q) ||
-          (b.bugId || '').toLowerCase().includes(q)
-        )
+        if (searching) {
+          // When the user is searching, surface ANY bug they're involved with
+          // so they can start a conversation on a bug that has no messages yet.
+          return (
+            (b.title || '').toLowerCase().includes(q) ||
+            (b.bugId || '').toLowerCase().includes(q)
+          )
+        }
+        // Default inbox: only bugs that already have at least one message.
+        return latestByBug.has(b.id)
       })
       .map((b) => {
         const last = latestByBug.get(b.id)
@@ -172,15 +178,26 @@ export default function MessagesPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by title or ID…"
+              placeholder="Search a bug to start a chat…"
               className="input pl-9 h-9"
             />
           </div>
+          <p className="text-[11px] text-ink-dim mt-2 px-0.5">
+            Inbox shows bugs with at least one message. Search to find any bug.
+          </p>
         </div>
         <div className="flex-1 overflow-y-auto">
           {rows.length === 0 ? (
             <div className="px-5 py-12 text-center text-ink-dim text-body-md">
-              {search ? 'No matches.' : 'No conversations yet.'}
+              {search ? (
+                'No bugs match.'
+              ) : (
+                <>
+                  No conversations yet.
+                  <br />
+                  <span className="text-[12px]">Search a bug above to start one.</span>
+                </>
+              )}
             </div>
           ) : (
             rows.map(({ bug, last, unread, other }) => {
