@@ -12,7 +12,6 @@ import {
   ArrowLeft,
   Play,
   SkipForward,
-  Bug,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useProject } from '../context/ProjectContext.jsx'
@@ -41,7 +40,6 @@ export default function ExecutionPage() {
   const [cases, setCases] = useState([])
   const [currentId, setCurrentId] = useState(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [standaloneDrawerOpen, setStandaloneDrawerOpen] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const [phase, setPhase] = useState('idle') // 'idle' | 'running' | 'confirm-pass'
   const [note, setNote] = useState('')
@@ -302,14 +300,6 @@ export default function ExecutionPage() {
           </div>
           <span className="text-body-md text-ink-dim">{progress}%</span>
         </div>
-        <button
-          type="button"
-          onClick={() => setStandaloneDrawerOpen(true)}
-          className="inline-flex items-center gap-1.5 h-8 px-3 rounded border border-danger/50 text-danger text-[12px] font-semibold hover:bg-danger/10 transition-colors"
-          title="Report a bug not tied to any test case"
-        >
-          <Bug size={14} /> Report Bug
-        </button>
         <button className="btn btn-sm btn-ghost w-8 p-0"><Settings size={16} /></button>
         <button className="btn btn-sm btn-ghost w-8 p-0"><HelpCircle size={16} /></button>
       </div>
@@ -475,15 +465,6 @@ export default function ExecutionPage() {
           round={round}
           onClose={() => setDrawerOpen(false)}
           onSubmitted={onBugSubmitted}
-        />
-      )}
-
-      {standaloneDrawerOpen && (
-        <BugReportDrawer
-          round={round}
-          projectId={selected?.id || round?.projectId}
-          onClose={() => setStandaloneDrawerOpen(false)}
-          onSubmitted={() => setStandaloneDrawerOpen(false)}
         />
       )}
     </div>

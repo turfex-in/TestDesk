@@ -11,7 +11,10 @@ import {
   ThumbsUp,
   BarChart3,
 } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { useAuth } from '../../context/AuthContext.jsx'
+import { useProject } from '../../context/ProjectContext.jsx'
+import { useBugReporter } from '../../context/BugReportContext.jsx'
 import { ROLES } from '../../utils/constants'
 import Avatar from '../common/Avatar.jsx'
 import logoApp from '../../assets/logo-app.png'
@@ -52,9 +55,19 @@ function isItemActive(item, pathname) {
 
 export default function Sidebar() {
   const { profile } = useAuth()
+  const { selected } = useProject()
+  const { openBugReport } = useBugReporter()
   const { pathname } = useLocation()
   const isDev = profile?.role === ROLES.DEVELOPER
   const nav = isDev ? DEV_NAV : TESTER_NAV
+
+  function handleReportBug() {
+    if (!selected?.id) {
+      toast.error('Pick a project first from the top bar.')
+      return
+    }
+    openBugReport()
+  }
 
   return (
     <aside className="w-[240px] shrink-0 bg-surface-lowest border-r border-outline-variant/60 flex flex-col">
@@ -92,6 +105,18 @@ export default function Sidebar() {
               </Link>
             )
           })}
+
+        {!isDev && (
+          <button
+            type="button"
+            onClick={handleReportBug}
+            className="mt-3 w-full flex items-center gap-3 px-3 py-2.5 rounded text-body-md font-semibold border border-danger/50 text-danger hover:bg-danger/10 transition-colors"
+            title="Report a bug not tied to any test case"
+          >
+            <Bug size={18} />
+            <span>Report Bug</span>
+          </button>
+        )}
       </nav>
 
       <div className="px-3 py-3 space-y-1 border-t border-outline-variant/40">
