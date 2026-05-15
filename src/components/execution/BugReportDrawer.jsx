@@ -20,8 +20,11 @@ const SEVERITY_TONE = {
   Low: 'bg-secondary/15 border-secondary text-secondary',
 }
 
-export default function BugReportDrawer({ testCase, round, onClose, onSubmitted }) {
+export default function BugReportDrawer({ testCase, round, projectId, onClose, onSubmitted }) {
   const { profile } = useAuth()
+  const standalone = !testCase
+  const effectiveProjectId = testCase?.projectId || projectId
+  const effectiveRoundId = testCase?.roundId || round?.id || null
   const [title, setTitle] = useState(testCase?.title || '')
   const [actualBehavior, setActualBehavior] = useState('')
   const [severity, setSeverity] = useState('Medium')
@@ -83,6 +86,8 @@ export default function BugReportDrawer({ testCase, round, onClose, onSubmitted 
   async function handleSubmit(e) {
     e.preventDefault()
     if (!actualBehavior.trim()) return toast.error('Describe what actually happened.')
+    if (standalone && !title.trim()) return toast.error('Give the bug a title.')
+    if (!effectiveProjectId) return toast.error('Missing project context.')
     setSubmitting(true)
     try {
       // Upload screenshots first
@@ -90,20 +95,20 @@ export default function BugReportDrawer({ testCase, round, onClose, onSubmitted 
       const screenshots = []
       for (let i = 0; i < files.length; i++) {
         const f = files[i]
-        const path = `bugs/${testCase.projectId}/${ts}-${i}-${f.name}`
+        const path = `bugs/${effectiveProjectId}/${ts}-${i}-${f.name}`
         const url = await uploadScreenshot(path, f)
         screenshots.push(url)
       }
 
-      const seq = (await countBugsForProject(testCase.projectId)) + 1
+      const seq = (await countBugsForProject(effectiveProjectId)) + 1
       const bugId = bugIdFor(round?.name || 'BUG', seq)
 
       await createBug({
         bugId,
-        testCaseId: testCase.id,
-        roundId: testCase.roundId,
-        projectId: testCase.projectId,
-        title: title.trim() || testCase.title,
+        testCaseId: testCase?.id || null,
+        roundId: effectiveRoundId,
+        projectId: effectiveProjectId,
+        title: title.trim() || testCase?.title || 'Untitled bug',
         actualBehavior: actualBehavior.trim(),
         severity,
         status: BUG_STATUS.OPEN,
@@ -114,6 +119,7 @@ export default function BugReportDrawer({ testCase, round, onClose, onSubmitted 
         assignedTo: round?.createdBy || null,
         fixedAt: null,
         retestResult: null,
+        standalone,
       })
       toast.success(`Bug ${bugId} reported`)
       onSubmitted?.()
@@ -139,10 +145,22 @@ export default function BugReportDrawer({ testCase, round, onClose, onSubmitted 
               <Bug size={20} />
             </div>
             <div>
-              <div className="text-h3">Report Bug — <span className="font-mono text-primary">{testCase?.testId}</span></div>
+              <div className="text-h3">
+                {standalone ? (
+                  'Report Bug'
+                ) : (
+                  <>Report Bug — <span className="font-mono text-primary">{testCase?.testId}</span></>
+                )}
+              </div>
               <div className="text-body-md text-ink-muted mt-0.5">
-                Linked to Test Execution Suite{' '}
-                <span className="font-mono text-ink">{round?.name?.replace(/\s+/g, '_') || 'round'}</span>
+                {standalone ? (
+                  <>Exploratory finding — not linked to any test case{round?.name && <> · <span className="font-mono text-ink">{round.name.replace(/\s+/g, '_')}</span></>}</>
+                ) : (
+                  <>
+                    Linked to Test Execution Suite{' '}
+                    <span className="font-mono text-ink">{round?.name?.replace(/\s+/g, '_') || 'round'}</span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -154,12 +172,14 @@ export default function BugReportDrawer({ testCase, round, onClose, onSubmitted 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
           <div>
-            <label className="label-sm block mb-1.5">Bug Title</label>
+            <label className="label-sm block mb-1.5">
+              Bug Title{standalone && <span className="text-danger ml-1">*</span>}
+            </label>
             <input
               className="input"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="One-line bug summary"
+              placeholder={standalone ? 'One-line bug summary (required)' : 'One-line bug summary'}
             />
           </div>
 
