@@ -330,10 +330,27 @@ export async function countBugsForProject(projectId) {
 }
 
 /* ───────────────────────── Comments ───────────────────────── */
-export async function addComment(bugId, { userId, userName, userRole, message, attachments = [], projectId = null }) {
+export async function addComment(
+  bugId,
+  {
+    userId,
+    userName,
+    userRole,
+    message,
+    attachments = [],
+    projectId = null,
+    bugReportedBy = null,
+    bugAssignedTo = null,
+  }
+) {
+  // bugReportedBy + bugAssignedTo are denormalized onto each comment so the
+  // notifications bell can scope alerts to the people involved with the bug
+  // without an extra read per notification.
   await addDoc(collection(db, TD.comments), {
     bugId,
     projectId,
+    bugReportedBy,
+    bugAssignedTo,
     userId,
     userName,
     userRole,

@@ -55,6 +55,19 @@ export default function BugDetailPage() {
     return () => off && off()
   }, [bugId])
 
+  // Access control: testers can only view bugs they reported or are
+  // assigned to. Developers see everything. Kick non-owners out so a
+  // notification click (or pasted URL) can't leak another tester's bug.
+  useEffect(() => {
+    if (!bug || !profile) return
+    if (profile.role === ROLES.DEVELOPER) return
+    const isMine = bug.reportedBy === profile.uid || bug.assignedTo === profile.uid
+    if (!isMine) {
+      toast.error("You don't have access to that bug.")
+      navigate('/bugs', { replace: true })
+    }
+  }, [bug, profile, navigate])
+
   useEffect(() => {
     if (!bug) return
     getTestCase(bug.testCaseId).then(setTestCase)
@@ -152,6 +165,8 @@ export default function BugDetailPage() {
           userRole: profile.role,
           message: `Moved to backlog — ${reason}`,
           projectId: bug.projectId || null,
+          bugReportedBy: bug.reportedBy || null,
+          bugAssignedTo: bug.assignedTo || null,
         })
       }
       toast.success('Moved to backlog')

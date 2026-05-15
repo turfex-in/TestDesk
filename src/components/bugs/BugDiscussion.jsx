@@ -59,6 +59,8 @@ export default function BugDiscussion({ bug }) {
         message: message.trim(),
         attachments,
         projectId: bug.projectId || null,
+        bugReportedBy: bug.reportedBy || null,
+        bugAssignedTo: bug.assignedTo || null,
       })
       setMessage('')
       setAttachFile(null)

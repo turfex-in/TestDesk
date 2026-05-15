@@ -4,6 +4,7 @@ import { Bell } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useProject } from '../../context/ProjectContext.jsx'
 import { watchRecentComments } from '../../services/firebaseService'
+import { ROLES } from '../../utils/constants'
 import { fmtRelative } from '../../utils/helpers'
 import Avatar from '../common/Avatar.jsx'
 
@@ -36,16 +37,29 @@ export default function NotificationsBell() {
   }, [])
 
   const visible = useMemo(() => {
+    if (!profile?.uid) return []
+    const isDev = profile.role === ROLES.DEVELOPER
     return items.filter((c) => {
       if (!c.createdAt?.toMillis) return false
-      if (c.userId === profile?.uid) return false
+      if (c.userId === profile.uid) return false
       // Comments without projectId predate the notifications feature; fall
       // through so backfilled chats still surface. New comments carry
       // projectId so cross-project noise stays scoped.
       if (selected?.id && c.projectId && c.projectId !== selected.id) return false
+      // Privacy: only show notifications for bugs the user is involved with.
+      // Developers see notifications for bugs assigned to them. Testers see
+      // only their own reported / assigned bugs. Old comments missing the
+      // denormalized fields are hidden rather than leaked.
+      if (isDev) {
+        if (c.bugAssignedTo && c.bugAssignedTo !== profile.uid) return false
+      } else {
+        const isMine =
+          c.bugReportedBy === profile.uid || c.bugAssignedTo === profile.uid
+        if (!isMine) return false
+      }
       return true
     })
-  }, [items, profile?.uid, selected?.id])
+  }, [items, profile?.uid, profile?.role, selected?.id])
 
   const unreadCount = useMemo(
     () => visible.filter((c) => c.createdAt.toMillis() > seenAt).length,
